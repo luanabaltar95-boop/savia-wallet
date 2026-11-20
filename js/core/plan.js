@@ -68,7 +68,8 @@ export function jurosDa(state, iso) {
 // Quanto ainda falta de um item (considera pagamento parcial registrado)
 export function restante(state, iso, item, coberto) {
   const p = pagamento(state, iso, item.id);
-  if (p) return p.valor == null ? 0 : Math.max(0, item.valor - p.valor);
+  // "Paguei tudo" (ex.: câmbio deixou o valor diferente) não deixa resto
+  if (p) return p.valor == null || p.quitado ? 0 : Math.max(0, item.valor - p.valor);
   return Math.max(0, item.valor - (coberto || 0));
 }
 

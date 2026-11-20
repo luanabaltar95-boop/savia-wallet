@@ -12,7 +12,7 @@ import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
-import { card, field, levels, mission, payRow, stats, esc } from "../components/ui.js";
+import { card, field, levels, mission, payRow, stats, segmented, esc } from "../components/ui.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
 
@@ -58,6 +58,7 @@ export function renderHoje(root, ctx) {
           ${field({ id: "pg-juros", label: "Juros / multa", value: "", prefix: "$", placeholder: "0,00" })}
           ${field({ id: "pg-data", label: "Data do pagamento", type: "date", value: toISO(new Date()) })}
         </div>
+        ${segmented({ name: "pg-tipo", label: "Essa conta", options: [{ id: "tudo", label: "Paguei tudo" }, { id: "parte", label: "Paguei uma parte" }], value: "tudo" })}
         <div class="sheet-total"><span>Total que saiu</span><b id="pg-total">${money(sugerido, true)}</b></div>
         
         <div class="inline-btns"><button class="btn primary" type="submit">Confirmar</button><button class="btn" type="button" id="pg-cancel">Cancelar</button></div>
@@ -224,7 +225,8 @@ export function renderHoje(root, ctx) {
       const juros = Number(sheet.querySelector("#pg-juros").value) || 0;
       const data = sheet.querySelector("#pg-data").value || toISO(new Date());
       if (!(valor >= 0)) return;
-      state.pagos[iso] = { ...(state.pagos[iso] || {}), [item.id]: { valor, juros, data } };
+      const quitado = sheet.querySelector('input[name="pg-tipo"]:checked').value === "tudo";
+      state.pagos[iso] = { ...(state.pagos[iso] || {}), [item.id]: { valor, juros, data, quitado } };
       // Cartão: o valor pago (sem os juros) baixa o saldo
       if (item.cartao) addMov(state, { id: `pg:${iso}:${item.id}`, cartao: item.cartao, tipo: "pagamento", valor, semana: iso, desc: item.nome, data });
       ctx.pagarItem = null;
