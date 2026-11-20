@@ -2,7 +2,7 @@
 // APP — navegação por abas (hash) e ligação entre páginas e estado.
 // =========================================================
 import { SEED } from "./config/seed.js";
-import { load, save, loadReg } from "./core/store.js";
+import { vazioState, save } from "./core/store.js";
 import { renderHoje } from "./pages/hoje.js";
 import { renderEmBreve } from "./pages/emBreve.js";
 import { renderDividas } from "./pages/dividas.js";
@@ -18,17 +18,15 @@ import { dataTexto } from "./components/ui.js";
 import { renderAjustes } from "./pages/ajustes.js";
 import { renderHome } from "./pages/home.js";
 import { renderLogin } from "./pages/login.js";
-import { perfilAtivo } from "./core/auth.js";
 import { renderNav, PAGINAS } from "./components/nav.js";
 
-// Usuário logado (sessão salva) e a carteira dele
-const reg = loadReg();
-const ativo = perfilAtivo(reg);
-const ctx = { seed: SEED, reg, doc: ativo ? ativo.doc : "carteira", payday: null };
-ctx.state = load(ctx.doc);
+// Usuário logado (Supabase) e a carteira dele — preenchidos em iniciar()
+let ultimo = "";
+try { ultimo = localStorage.getItem("savia-wallet-ultimo") || ""; } catch { /* nada */ }
+const ctx = { seed: SEED, usuario: null, userId: null, state: vazioState(), payday: null, ultimoUsuario: ultimo };
 ctx.persist = () => {
   ctx.state.updatedAt = Date.now();
-  save(ctx.state, ctx.doc);
+  save(ctx.state, ctx.usuario);
   invalidate(ctx.state);
   agendar(ctx);
 };
@@ -47,7 +45,7 @@ function current() {
 
 function render(opts = {}) {
   // Cadeado: carregando a conta → espera; sem usuário → criar; sem sessão → entrar
-  if (!perfilAtivo(ctx.reg)) {
+  if (!ctx.usuario) {
     nav.hidden = true;
     if (ctx.sync === "loading") { main.innerHTML = `<p class="foot">Carregando…</p>`; return; }
     return renderLogin(main, ctx);

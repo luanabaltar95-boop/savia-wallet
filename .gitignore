@@ -2,3 +2,6 @@
 .vercel
 node_modules
 *.json.bak
+
+# dados pessoais nunca vão para o GitHub
+*PRIVADO*

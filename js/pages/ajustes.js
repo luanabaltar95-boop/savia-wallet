@@ -4,9 +4,9 @@
 // em atraso) · 3 cartões · 4 dívidas · 5 financiamentos e parcelamentos.
 // Nada muda até tocar em Salvar; aí a carteira inteira se recalcula.
 // =========================================================
-import { syncNote, salvarReg } from "../core/sync.js";
+import { syncNote, sairDaConta } from "../core/sync.js";
+import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
-import { conferir, trocarSenha, perfilAtivo, limparUsuario, usuarioValido, perfilDe } from "../core/auth.js";
 import { parte, salvarParte } from "../core/config.js";
 import { FREQS } from "../core/plan.js";
 import { money, shortDate } from "../core/format.js";
@@ -346,12 +346,10 @@ export function renderAjustes(root, ctx) {
     ${blocos}
 
     <details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
-      <summary class="sec-head"><h2>Meu perfil</h2><span class="total">@${esc(ctx.reg.sessao || "")}</span></summary>
+      <summary class="sec-head"><h2>Meu perfil</h2><span class="total">@${esc(ctx.usuario || "")}</span></summary>
       <form class="sec-body" id="form-perfil" novalidate autocomplete="off">
         <div class="fields stack">
-          ${field({ id: "pf-user", name: "usuario", label: "Usuário", type: "text", prefix: "@", value: ctx.reg.sessao || "", attrs: 'autocapitalize="none" autocorrect="off" spellcheck="false"' })}
-          ${field({ id: "pf-atual", name: "atual", label: "Senha atual", type: "password", attrs: 'autocomplete="current-password"' })}
-          ${field({ id: "pf-nova", name: "nova", label: "Nova senha (opcional)", type: "password", attrs: 'autocomplete="new-password"' })}
+          ${field({ id: "pf-nova", name: "nova", label: "Nova senha", type: "password", attrs: 'autocomplete="new-password"' })}
           ${field({ id: "pf-nova2", name: "nova2", label: "Repetir nova senha", type: "password", attrs: 'autocomplete="new-password"' })}
         </div>
         <p class="preview" id="pf-msg" aria-live="polite"></p>
@@ -557,23 +555,9 @@ export function renderAjustes(root, ctx) {
   fp.addEventListener("submit", async (e) => {
     e.preventDefault();
     const aviso = (t) => { fp.querySelector("#pf-msg").innerHTML = `<span class="status warn">${t}</span>`; };
-    const eu = perfilAtivo(ctx.reg);
-    if (!eu) return;
-    if (!(await conferir(ctx.reg, eu.usuario, fp.atual.value))) return aviso("Senha atual incorreta.");
-    const novo = limparUsuario(fp.usuario.value);
-    if (novo !== eu.usuario) {
-      if (!usuarioValido(novo)) return aviso("Usuário: 3 a 30 letras, números, ponto ou _.");
-      if (perfilDe(ctx.reg, novo)) return aviso("Esse usuário já existe.");
-    }
-    if (fp.nova.value || fp.nova2.value) {
-      if (fp.nova.value.length < 8) return aviso("Nova senha com pelo menos 8 caracteres.");
-      if (fp.nova.value !== fp.nova2.value) return aviso("As senhas novas não são iguais.");
-      await trocarSenha(eu, fp.nova.value);
-    }
-    eu.usuario = novo;
-    ctx.reg.sessao = novo;
-    ctx.reg.ultimo = novo;
-    await salvarReg(ctx);
+    if (fp.nova.value.length < 8) return aviso("Nova senha com pelo menos 8 caracteres.");
+    if (fp.nova.value !== fp.nova2.value) return aviso("As senhas não são iguais.");
+    try { await backend.trocarSenha(fp.nova.value); } catch (err) { return aviso(err.message); }
     ctx.openSec = null;
     ctx.rerender();
     toast("Salvo ✓");
@@ -581,7 +565,7 @@ export function renderAjustes(root, ctx) {
 
   bindDados(root, ctx);
 
-  root.querySelector("#sair").onclick = async () => { ctx.reg.sessao = null; await salvarReg(ctx); location.hash = "home"; ctx.rerender(); };
+  root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 
   // + Nova categoria (contas fixas)
   const addCat = root.querySelector("#add-cat");

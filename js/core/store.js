@@ -1,40 +1,18 @@
 // =========================================================
-// ARMAZENAMENTO — cópia no navegador. Tudo protegido com try/catch.
-// Cada usuário tem a própria carteira (doc). A primeira usa a chave
-// antiga "carteira-digital-v1"; as outras ganham o sufixo do doc.
-// O registro de usuários e a sessão ficam em "carteira-perfis".
+// CÓPIA LOCAL — guarda a carteira no navegador para abrir rápido
+// e funcionar sem internet. A versão oficial fica no Supabase.
 // =========================================================
-const KEY = "carteira-digital-v1";
-const REG = "carteira-perfis";
+const KEY = "savia-wallet";
 
 export const vazioState = () => ({ renda: {}, pagos: {}, lyft: [], pedidos: [], juntas: [], config: {}, movs: [], recebimentos: [], gasolina: [], compart: {}, entradasExtra: [], gastos: [], bancos: [] });
-const chave = (doc = "carteira") => (doc === "carteira" ? KEY : `${KEY}-${doc}`);
 
-export function load(doc) {
-  try { return { ...vazioState(), ...(JSON.parse(localStorage.getItem(chave(doc))) || {}) }; }
+export function load(usuario) {
+  if (!usuario) return vazioState();
+  try { return { ...vazioState(), ...(JSON.parse(localStorage.getItem(`${KEY}:${usuario}`)) || {}) }; }
   catch { return vazioState(); }
 }
 
-export function save(state, doc) {
-  try { localStorage.setItem(chave(doc), JSON.stringify(state)); } catch { /* sem armazenamento: segue em memória */ }
-}
-
-// Registro: { perfis: [{ usuario, salt, iter, hash, doc }], sessao: usuario|null, updatedAt }
-export function loadReg() {
-  let r = null;
-  try { r = JSON.parse(localStorage.getItem(REG)); } catch { /* nada */ }
-  r = { perfis: [], sessao: null, updatedAt: 0, ...(r || {}) };
-  // Compatibilidade: usuário criado antes do registro (perfil dentro da carteira)
-  if (!r.perfis.length) {
-    const antigo = load("carteira").perfil;
-    if (antigo) {
-      r.perfis = [{ ...antigo, doc: "carteira" }];
-      try { if (localStorage.getItem("carteira-sessao") === antigo.usuario) r.sessao = antigo.usuario; } catch { /* nada */ }
-    }
-  }
-  return r;
-}
-
-export function saveReg(reg) {
-  try { localStorage.setItem(REG, JSON.stringify(reg)); } catch { /* nada */ }
+export function save(state, usuario) {
+  if (!usuario) return;
+  try { localStorage.setItem(`${KEY}:${usuario}`, JSON.stringify(state)); } catch { /* sem armazenamento */ }
 }

@@ -5,12 +5,8 @@
 import { esc, toast } from "../components/ui.js";
 import { vazioState } from "../core/store.js";
 
-// Pacote: dados + login (só o resumo da senha), para abrir em outro aparelho
-const pacote = (ctx) => {
-  const p = (ctx.reg.perfis || []).find((x) => x.usuario === ctx.reg.sessao);
-  const perfil = p ? { usuario: p.usuario, salt: p.salt, iter: p.iter, hash: p.hash } : null;
-  return JSON.stringify({ app: "carteira", versao: 2, usuario: ctx.reg.sessao, exportado: new Date().toISOString(), perfil, state: ctx.state });
-};
+// Pacote: os dados da carteira (backup)
+const pacote = (ctx) => JSON.stringify({ app: "carteira", versao: 3, usuario: ctx.usuario, exportado: new Date().toISOString(), state: ctx.state });
 
 export function dadosHtml(ctx) {
   return `<details class="card sec" data-sec="dados" ${ctx.openSec === "dados" ? "open" : ""}>
@@ -41,7 +37,7 @@ export function bindDados(root, ctx) {
   root.querySelector("#dd-baixar").onclick = () => {
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([pacote(ctx)], { type: "application/json" }));
-    a.download = `carteira-${ctx.reg.sessao || "dados"}-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `carteira-${ctx.usuario || "dados"}-${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a); a.click(); a.remove();
   };
   const arquivo = root.querySelector("#dd-arquivo");
