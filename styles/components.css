@@ -484,3 +484,4 @@ details.cats .sub-head .total { margin-left: auto; }
 .field textarea:focus { border-color: var(--lilac); outline: none; }
 .login-trocar { margin: var(--s4) 0 0; color: var(--ink-2); font-size: var(--t-sm); }
 .login > .btn.block { max-width: 100%; }
+.login > .link { margin-top: var(--s2); }

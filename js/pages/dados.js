@@ -5,7 +5,12 @@
 import { esc, toast } from "../components/ui.js";
 import { vazioState } from "../core/store.js";
 
-const pacote = (ctx) => JSON.stringify({ app: "carteira", versao: 1, usuario: ctx.reg.sessao, exportado: new Date().toISOString(), state: ctx.state });
+// Pacote: dados + login (só o resumo da senha), para abrir em outro aparelho
+const pacote = (ctx) => {
+  const p = (ctx.reg.perfis || []).find((x) => x.usuario === ctx.reg.sessao);
+  const perfil = p ? { usuario: p.usuario, salt: p.salt, iter: p.iter, hash: p.hash } : null;
+  return JSON.stringify({ app: "carteira", versao: 2, usuario: ctx.reg.sessao, exportado: new Date().toISOString(), perfil, state: ctx.state });
+};
 
 export function dadosHtml(ctx) {
   return `<details class="card sec" data-sec="dados" ${ctx.openSec === "dados" ? "open" : ""}>
