@@ -1,5 +1,5 @@
 // Supabase do Savia Wallet (a chave "anon" é pública: quem protege os dados são as regras do banco)
 export const SUPABASE_URL = "https://zjhgapytrukehawoolwu.supabase.co";
-export const SUPABASE_ANON_KEY = ""; // cole aqui a anon public key (Project Settings → API)
+export const SUPABASE_ANON_KEY = "sb_publishable_oFpmOcH5DwPCR-Jhm7mN2g_rhEg6-UO"; // publishable key (Project Settings → API Keys)
 // O login é @usuario + senha; por baixo, o Supabase usa um e-mail interno
 export const EMAIL_DOMINIO = "wallet.gosavia.com";
