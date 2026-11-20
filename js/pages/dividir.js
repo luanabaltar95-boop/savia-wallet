@@ -14,6 +14,7 @@ import { pessoas, cartoes, extrato, contasDivididas, ocorrencias, publicarLivros
 import { toISO, fromISO, nextPayday, pagamentoAnterior } from "../core/calendar.js";
 import { money, shortDate } from "../core/format.js";
 import { field, select, segmented, chip, esc, toast } from "../components/ui.js";
+import { MOEDAS, moedaBase, emOutraMoeda, converter, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
 const FREQ = [{ id: "semanal", label: "Semanal" }, { id: "mensal", label: "Mensal" }, { id: "trimestral", label: "A cada 3 meses" }];
@@ -48,7 +49,8 @@ export function renderDividir(root, ctx) {
       <form id="dv-nova" novalidate>
         <div class="fields stack">
           ${field({ id: "dvn-nome", name: "nome", label: "Conta", type: "text" })}
-          ${field({ id: "dvn-valor", name: "valor", label: "Valor total", prefix: "$", placeholder: "0,00" })}
+          ${select({ id: "dvn-moeda", label: "Moeda", options: MOEDAS, value: moedaBase(state) })}
+          ${field({ id: "dvn-valor", name: "valor", label: "Valor total", placeholder: "0,00" })}
           ${select({ id: "dvn-freq", label: "Frequência", options: FREQ, value: "semanal" })}
           ${field({ id: "dvn-desde", name: "desde", label: "A partir de", type: "date", value: hoje })}
           ${select({ id: "dvn-quem", label: "Com quem", options: opcoesQuem, value: opcoesQuem[0].id })}
@@ -70,9 +72,16 @@ export function renderDividir(root, ctx) {
       </div>`).join("");
     return `<li class="dv-conta">
       <div class="debt-top"><span class="name">${esc(c.nome)}</span><span class="value">${money(Number(c.valor), true)}</span></div>
-      <div class="meta">${chip(FREQ_TXT[c.freq] || "")}${quem ? chip(`com ${quem}`, "plan") : chip("sem pessoa", "miss")}${chip(`minha parte ${money(Number(c.valor) / 2, true)}`)}</div>
+      <div class="meta">${emOutraMoeda(state, c) ? chip(fmtMoeda(c.valorMoeda, c.moeda), "plan") : ""}${chip(FREQ_TXT[c.freq] || "")}${quem ? chip(`com ${quem}`, "plan") : chip("sem pessoa", "miss")}${chip(`minha parte ${money(Number(c.valor) / 2, true)}`)}</div>
       ${semana}
-      <div class="row-actions">${btnRemover("data-dv-rmconta", `${c.origem}|${c.id}`)}</div>
+      ${v.editar === c.id ? `<form class="dv-form" data-dv-editar="${esc(c.origem)}|${esc(c.id)}" novalidate>
+          <div class="fields">
+            ${select({ id: `dve-m-${c.id}`, label: "Moeda", options: MOEDAS, value: c.moeda || moedaBase(state) })}
+            ${field({ id: `dve-v-${c.id}`, name: "valor", label: "Valor total", value: emOutraMoeda(state, c) ? c.valorMoeda : c.valor })}
+          </div>
+          <div class="inline-btns"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-dv-fechar>Cancelar</button></div>
+        </form>`
+        : `<div class="row-actions"><button class="link" data-dv-edit="${esc(c.id)}">editar</button>${btnRemover("data-dv-rmconta", `${c.origem}|${c.id}`)}</div>`}
     </li>`;
   };
   // Contas que outras pessoas dividem comigo (vêm do livro delas)
@@ -172,7 +181,11 @@ function bindDividir(root, ctx, lista) {
   const v = ui(ctx);
   const cardDe = (k) => lista.find((c) => c.chave === k);
   const salvar = () => { ctx.persist(); ctx.rerender(); };
-  const fechar = () => { v.pagar = v.divida = null; };
+  const fechar = () => { v.pagar = v.divida = v.editar = null; };
+  // Valor digitado na moeda escolhida → { valor, moeda?, valorMoeda? }
+  const comMoeda = (moeda, digitado, antes = {}) => (moeda === moedaBase(state)
+    ? { valor: digitado, moeda: undefined, valorMoeda: undefined }
+    : { moeda, valorMoeda: digitado, valor: converter(state, digitado, moeda) ?? antes.valor ?? 0 });
   const confirma = (b) => { if (b.dataset.confirma) return true; b.dataset.confirma = "1"; b.textContent = "confirmar"; return false; };
 
   // Acha ou cria a pessoa a partir do "Com quem" (p:id · u:userId · novo + nome)
@@ -198,8 +211,9 @@ function bindDividir(root, ctx, lista) {
     if (!nome || !(valor > 0)) return toast("Preencha a conta e o valor");
     const p = pessoaDe(fn.querySelector("#dvn-quem").value, fn.pessoa.value);
     if (!p) return toast("Escreva o nome da pessoa");
-    if (freq === "semanal") salvarParte(state, "semanais", [...parte(state, "semanais"), { id: novoId("u-"), nome, valor, grupo: "vida", compartilhado: true, pessoa: p.id, desde }]);
-    else salvarParte(state, "compartilhadas", [...parte(state, "compartilhadas"), { id: novoId("c-"), nome, valor, freq, pessoa: p.id, desde }]);
+    const m = comMoeda(fn.querySelector("#dvn-moeda").value, valor);
+    if (freq === "semanal") salvarParte(state, "semanais", [...parte(state, "semanais"), { id: novoId("u-"), nome, ...m, grupo: "vida", compartilhado: true, pessoa: p.id, desde }]);
+    else salvarParte(state, "compartilhadas", [...parte(state, "compartilhadas"), { id: novoId("c-"), nome, ...m, freq, pessoa: p.id, desde }]);
     v.nova = false;
     salvar();
   });
@@ -220,6 +234,22 @@ function bindDividir(root, ctx, lista) {
     const sem = { ...((state.compart || {})[key] || {}) };
     if (sem[id] === "sozinha") delete sem[id]; else sem[id] = "sozinha";
     state.compart = { ...(state.compart || {}), [key]: sem };
+    salvar();
+  }));
+  root.querySelectorAll("[data-dv-edit]").forEach((b) => (b.onclick = () => { fechar(); v.editar = b.dataset.dvEdit; ctx.rerender(); }));
+  root.querySelectorAll("[data-dv-editar]").forEach((f) => f.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const [origem, id] = f.dataset.dvEditar.split("|");
+    const digitado = Number(f.valor.value);
+    if (!(digitado > 0)) return;
+    const moeda = f.querySelector("select").value;
+    salvarParte(state, origem, parte(state, origem).map((x) => {
+      if (x.id !== id) return x;
+      const novo = { ...x, ...comMoeda(moeda, digitado, x) };
+      if (novo.moeda === undefined) { delete novo.moeda; delete novo.valorMoeda; }
+      return novo;
+    }));
+    v.editar = null;
     salvar();
   }));
   root.querySelectorAll("[data-dv-rmconta]").forEach((b) => (b.onclick = () => {

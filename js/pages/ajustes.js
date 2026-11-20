@@ -5,6 +5,8 @@
 // Nada muda até tocar em Salvar; aí a carteira inteira se recalcula.
 // =========================================================
 import { syncNote, sairDaConta } from "../core/sync.js";
+import { MOEDAS, moedaBase, emOutraMoeda, converter, fmtMoeda } from "../core/cambio.js";
+import { cambioHtml, bindCambio } from "./cambio.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
 import { conexoesHtml, bindConexoes } from "./conexoes.js";
@@ -27,6 +29,7 @@ const freqDe = (src, r) => (src === "semanais" ? "semanal" : r.freq || "mensal")
 // Campos e em que frequência aparecem ("mes" = qualquer uma menos semanal)
 const CAMPOS_CONTA = [
   { f: "nome", label: "Nome", type: "text" },
+  { f: "moeda", label: "Moeda", type: "select", options: (st) => opcoesMoeda(st) },
   { f: "valor", label: "Valor" },
   { f: "freq", label: "Frequência", type: "select", options: () => FREQ_CONTAS },
   { f: "dia", label: "Dia do vencimento", so: "mes" },
@@ -45,7 +48,7 @@ function linhaConta(src, r, i, state) {
     const attrs = `data-f="${c.f}"`;
     const so = c.so ? `data-so="${c.so}" ${vis(c) ? "" : "hidden"}` : "";
     if (c.type === "select") {
-      const v = c.f === "freq" ? freq : String(r[c.f] ?? "");
+      const v = c.f === "freq" ? freq : c.f === "moeda" ? (r.moeda || moedaBase(state)) : String(r[c.f] ?? "");
       return `<label class="field" for="${id}" ${so}><span class="lbl">${esc(c.label)}</span>
         <select id="${id}" ${attrs}>${c.options(state).map((o) => `<option value="${esc(o.id)}" ${String(o.id) === v ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select></label>`;
     }
@@ -53,10 +56,14 @@ function linhaConta(src, r, i, state) {
       const on = c.f === "investimento" ? r.grupo === "investimento" : !!r[c.f];
       return `<label class="check-field" for="${id}" ${so}><input class="check" id="${id}" type="checkbox" ${on ? "checked" : ""} ${attrs}><span>${esc(c.label)}</span></label>`;
     }
-    return field({ id, label: c.label, type: c.type || "number", value: r[c.f], attrs, note: "" }).replace('<label class="field"', `<label class="field" ${so}`);
+    // Conta em outra moeda: o valor aparece na moeda dela
+    const valor = c.f === "valor" && emOutraMoeda(state, r) ? r.valorMoeda : r[c.f];
+    const note = c.f === "valor" && emOutraMoeda(state, r) && r.valor ? `≈ ${money(r.valor, true)} hoje` : "";
+    return field({ id, label: c.label, type: c.type || "number", value: valor, attrs, note }).replace('<label class="field"', `<label class="field" ${so}`);
   }).join("");
   const cat = (opcoesCategoria(state).find((c) => c.id === r.categoria) || {}).label || "";
-  const [valor, det] = freq === "semanal" ? [money(r.valor, true), ""] : SECOES[0].resumo(r);
+  const [valor0, det] = freq === "semanal" ? [money(r.valor, true), ""] : SECOES[0].resumo(r);
+  const valor = emOutraMoeda(state, r) ? fmtMoeda(r.valorMoeda, r.moeda) : valor0;
   const resumo = [valor, [det, cat].filter(Boolean).join(" · ")];
   return `<details class="row-edit">
     ${resumoRow(r.nome, resumo)}
@@ -101,6 +108,7 @@ const BLOCOS = [
 ];
 
 const novoId = () => "u-" + Date.now().toString(36);
+const opcoesMoeda = (state) => MOEDAS.map((m) => ({ id: m.id, label: m.id === moedaBase(state) ? `${m.label} · principal` : m.label }));
 const opcoesDivida = (state) => [{ id: "", label: "Nenhuma" }, ...parte(state, "outras").map((o) => ({ id: o.id, label: o.nome || "Sem nome" }))];
 const opcoesCategoria = (state) => parte(state, "categorias");
 const nomeFreq = (id) => (FREQS.find((f) => f.id === id) || FREQS[0]).label.toLowerCase();
@@ -346,6 +354,8 @@ export function renderAjustes(root, ctx) {
 
     ${blocos}
 
+    ${cambioHtml(ctx)}
+
     ${conexoesHtml(ctx)}
 
     <details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
@@ -503,12 +513,20 @@ export function renderAjustes(root, ctx) {
       const antes = parte(state, src)[i];
       const v = (f) => form.querySelector(`[data-f="${f}"]`);
       const freq = v("freq").value;
-      const base = { ...antes, nome: v("nome").value, valor: Number(v("valor").value) || 0, categoria: v("categoria").value };
-      if (base.valor !== antes.valor) base.estimativa = false;
+      const moeda = v("moeda").value;
+      const digitado = Number(v("valor").value) || 0;
+      const base = { ...antes, nome: v("nome").value, valor: digitado, categoria: v("categoria").value };
+      if (moeda !== moedaBase(state)) {
+        // Guardo o valor na moeda; o valor convertido fica como referência
+        base.moeda = moeda; base.valorMoeda = digitado;
+        base.valor = converter(state, digitado, moeda) ?? antes.valor ?? 0;
+      } else { delete base.moeda; delete base.valorMoeda; }
+      if (digitado !== (antes.valorMoeda ?? antes.valor)) base.estimativa = false;
       let destino, novo;
       if (freq === "semanal") {
         destino = "semanais";
-        novo = { id: base.id, nome: base.nome, valor: base.valor, categoria: base.categoria, grupo: "vida", compartilhado: v("compartilhado").checked };
+        novo = { ...base, grupo: "vida", compartilhado: v("compartilhado").checked };
+        ["freq", "dia", "desde", "ate", "divida", "diaConfirmar"].forEach((k) => delete novo[k]);
         if (antes.estimativa && base.valor === antes.valor) novo.estimativa = true;
       } else {
         destino = "mensais";
@@ -568,6 +586,7 @@ export function renderAjustes(root, ctx) {
 
   bindDados(root, ctx);
   bindConexoes(root, ctx);
+  bindCambio(root, ctx);
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

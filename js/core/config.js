@@ -5,6 +5,7 @@
 // =========================================================
 import { SEED } from "../config/seed.js";
 import { toISO, nextPayday } from "./calendar.js";
+import { converterItens } from "./cambio.js";
 
 export const EDITAVEIS = ["semanais", "mensais", "reservaItens", "pontuais", "parcelas", "receber", "compartilhadas", "fontes", "cartoes", "outras", "metas", "colchaoSemanal", "ciclo", "pedidos", "reservasPrazo", "alvos", "categorias", "inicio", "cartoesInicio"];
 
@@ -116,12 +117,13 @@ export function getSeed(state) {
   const resto = cartoes.filter((c) => !escolhidos.includes(c.id)).sort((a, b) => b.apr - a.apr).map((c) => c.id);
   return {
     ...SEED,
-    semanais: parte(state, "semanais"),
-    mensais: parte(state, "mensais"),
-    pontuais: parte(state, "pontuais"),
-    parcelas: parte(state, "parcelas"),
+    // Contas em outra moeda já vêm convertidas para a moeda principal
+    semanais: converterItens(state, parte(state, "semanais")),
+    mensais: converterItens(state, parte(state, "mensais")),
+    pontuais: converterItens(state, parte(state, "pontuais")),
+    parcelas: converterItens(state, parte(state, "parcelas")),
     receber: parte(state, "receber"),
-    compartilhadas: parte(state, "compartilhadas"),
+    compartilhadas: converterItens(state, parte(state, "compartilhadas")),
     fontes: parte(state, "fontes"),
     reservasMensais: { ...SEED.reservasMensais, itens: parte(state, "reservaItens") },
     outras: parte(state, "outras").map((o) => {

@@ -12,7 +12,9 @@ import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
-import { card, field, levels, mission, payRow, stats, segmented, esc } from "../components/ui.js";
+import { card, field, select, levels, mission, payRow, stats, segmented, esc } from "../components/ui.js";
+import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem, ajustarSaldo, desfazerAjustes } from "../core/caixa.js";
+import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
 
@@ -48,15 +50,19 @@ export function renderHoje(root, ctx) {
   // Confirmação de pagamento
   const itemPagar = ctx.pagarItem && week.items.find((i) => i.id === ctx.pagarItem);
   const sugerido = itemPagar ? Math.round(((cover[itemPagar.id] || 0) > 0 ? cover[itemPagar.id] : itemPagar.valor) * 100) / 100 : 0;
+  const moedaItem = itemPagar && emOutraMoeda(state, itemPagar) ? itemPagar.moeda : null;
+  const contasPg = contasCorrentes(state).map((b) => ({ id: b.id, label: b.banco }));
   const sheetHtml = itemPagar ? `<div class="sheet-backdrop">
       <form class="sheet" id="pay-sheet" role="dialog" aria-modal="true" aria-labelledby="pg-title" novalidate>
         <div class="sheet-grip"></div>
         <h2 id="pg-title">Confirmar pagamento</h2>
-        <p class="hint">${esc(itemPagar.nome)} · previsto ${money(itemPagar.valor, true)}</p>
+        <p class="hint">${esc(itemPagar.nome)} · previsto ${money(itemPagar.valor, true)}${moedaItem ? ` (${fmtMoeda(Math.round(itemPagar.valorMoeda), moedaItem)})` : ""}</p>
         <div class="fields">
-          ${field({ id: "pg-valor", label: "Valor pago", value: sugerido, prefix: "$" })}
+          ${moedaItem ? field({ id: "pg-orig", label: `Paguei em ${moedaItem}`, value: Math.round(itemPagar.valorMoeda) }) : ""}
+          ${field({ id: "pg-valor", label: moedaItem ? "Saiu da conta" : "Valor pago", value: sugerido, prefix: "$" })}
           ${field({ id: "pg-juros", label: "Juros / multa", value: "", prefix: "$", placeholder: "0,00" })}
           ${field({ id: "pg-data", label: "Data do pagamento", type: "date", value: toISO(new Date()) })}
+          ${contasPg.length > 1 ? select({ id: "pg-banco", label: "Saiu de", options: contasPg, value: bancoDoItem(state, itemPagar.id) }) : ""}
         </div>
         ${segmented({ name: "pg-tipo", label: "Essa conta", options: [{ id: "tudo", label: "Paguei tudo" }, { id: "parte", label: "Paguei uma parte" }], value: "tudo" })}
         <div class="sheet-total"><span>Total que saiu</span><b id="pg-total">${money(sugerido, true)}</b></div>
@@ -80,13 +86,25 @@ export function renderHoje(root, ctx) {
   }) : "";
 
   // Disponível: o que entra menos o que já paguei nesta semana (com juros e extra na dívida)
-  const jaPaguei = Object.values(pagos).reduce((a, p) => a + (Number(p && p.valor) || 0) + (Number(p && p.juros) || 0), 0) + extraFeito;
-  const disponivel = efetiva.valor - jaPaguei;
+  // por conta corrente; "Ajustar com o banco" acerta taxas e câmbio
+  const cx = caixaDaSemana(state, iso, efetiva.valor, extraFeito);
+  const multi = cx.contas.length > 1;
+  const linhaCx = (l) => `<li class="cx-linha">
+      ${multi ? `<div class="cx-top"><span class="name">${esc(l.banco)}</span><b class="${l.disponivel < 0 ? "neg" : ""}">${money(l.disponivel, true)}</b></div>
+        <div class="hint">entra ${money(l.entra, true)} · paguei ${money(l.paguei, true)}${l.ajuste ? ` · taxas e câmbio ${money(l.ajuste, true)}` : ""}</div>`
+        : l.ajuste ? `<div class="hint">taxas e câmbio ${money(l.ajuste, true)}</div>` : ""}
+      ${ctx.ajustarBanco === l.id ? `<form class="inline ajuste-form" data-ajuste="${esc(l.id)}" data-calc="${l.disponivel}" novalidate>
+          ${field({ id: `aj-${l.id}`, label: `Tenho de verdade no ${l.banco}`, prefix: "$", placeholder: "0,00" })}
+          <button class="btn primary" type="submit">Salvar</button>
+          <button class="btn" type="button" data-ajuste-cancel>Cancelar</button>
+        </form>`
+        : `<div class="row-actions"><button class="link" data-ajustar="${esc(l.id)}">Ajustar com o banco</button>${l.ajuste ? `<button class="link danger" data-desajustar="${esc(l.id)}">desfazer ajuste</button>` : ""}</div>`}
+    </li>`;
   const saldoSemana = stats([
-    { label: "Entra", valor: money(efetiva.valor, true) },
-    { label: "Já paguei", valor: money(jaPaguei, true) },
-    { label: "Disponível", valor: money(disponivel, true) },
-  ]);
+    { label: "Entra", valor: money(cx.total.entra, true) },
+    { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste, true) },
+    { label: "Disponível", valor: money(cx.total.disponivel, true) },
+  ]) + `<ul class="cx-lista-hoje">${cx.contas.map(linhaCx).join("")}</ul>`;
 
   const listaSexta = card({
     title: getCiclo().tipo === "semanal" && Number(getCiclo().diaSemana ?? 5) === 5 ? "Na sexta, nesta ordem" : "No dia do pagamento, nesta ordem",
@@ -154,6 +172,9 @@ export function renderHoje(root, ctx) {
             : field({ id: "lyft", label: "Extra money", value: r.lyft, prefix: "$", placeholder: "0,00", note: '<a href="#extra">registrar</a>' })}
           ${field({ id: "extras", label: "Outras entradas", value: r.extras, prefix: "$", placeholder: "0,00" })}
         </div>
+        ${contasCorrentes(state).length > 1 ? `<div class="fields">
+          ${contasCorrentes(state).filter((b) => b.id !== contaPrincipal(state)).map((b) => field({ id: `pb-${b.id}`, label: `Do salário, caiu no ${b.banco}`, value: (r.porBanco || {})[b.id], prefix: "$", placeholder: "0,00", attrs: `data-porbanco="${esc(b.id)}"` })).join("")}
+        </div><p class="hint">O resto cai no ${esc(contasCorrentes(state)[0].banco)}.</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
         ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
         ${levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo })}`,
@@ -187,6 +208,26 @@ export function renderHoje(root, ctx) {
       ctx.rerender({ focus: id });
     });
   });
+
+  root.querySelectorAll("[data-porbanco]").forEach((el) => el.addEventListener("input", (e) => {
+    const atual = state.renda[iso] || {};
+    state.renda[iso] = { ...atual, porBanco: { ...(atual.porBanco || {}), [el.dataset.porbanco]: e.target.value } };
+    persist();
+    ctx.rerender({ focus: el.id });
+  }));
+  root.querySelectorAll("[data-ajustar]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = b.dataset.ajustar; ctx.rerender({ focus: `aj-${b.dataset.ajustar}` }); }));
+  root.querySelectorAll("[data-ajuste-cancel]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = null; ctx.rerender(); }));
+  root.querySelectorAll("[data-desajustar]").forEach((b) => (b.onclick = () => {
+    if (!b.dataset.confirma) { b.dataset.confirma = "1"; b.textContent = "confirmar"; return; }
+    desfazerAjustes(state, iso, b.dataset.desajustar); persist(); ctx.rerender();
+  }));
+  root.querySelectorAll("[data-ajuste]").forEach((f) => f.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = f.querySelector("input").value.replace(",", ".").trim();
+    if (raw === "" || !Number.isFinite(Number(raw))) return;
+    ajustarSaldo(state, iso, f.dataset.ajuste, Number(f.dataset.calc), Number(raw));
+    ctx.ajustarBanco = null; persist(); ctx.rerender();
+  }));
 
   // Marcar: abre a confirmação (valor + juros). Desmarcar: desfaz na hora.
   root.querySelectorAll("[data-pago]:not([disabled])").forEach((el) => {
@@ -226,7 +267,16 @@ export function renderHoje(root, ctx) {
       const data = sheet.querySelector("#pg-data").value || toISO(new Date());
       if (!(valor >= 0)) return;
       const quitado = sheet.querySelector('input[name="pg-tipo"]:checked').value === "tudo";
-      state.pagos[iso] = { ...(state.pagos[iso] || {}), [item.id]: { valor, juros, data, quitado } };
+      const bancoEl = sheet.querySelector("#pg-banco");
+      const banco = bancoEl ? bancoEl.value : contaPrincipal(state);
+      const reg = { valor, juros, data, quitado, banco };
+      const origEl = sheet.querySelector("#pg-orig");
+      if (origEl && Number(origEl.value) > 0) {
+        // Cotação real deste pagamento (com taxas) vira a cotação das próximas contas
+        reg.moeda = item.moeda; reg.valorMoeda = Number(origEl.value);
+        aprender(state, item.moeda, reg.valorMoeda, valor);
+      }
+      state.pagos[iso] = { ...(state.pagos[iso] || {}), [item.id]: reg };
       // Cartão: o valor pago (sem os juros) baixa o saldo
       if (item.cartao) addMov(state, { id: `pg:${iso}:${item.id}`, cartao: item.cartao, tipo: "pagamento", valor, semana: iso, desc: item.nome, data });
       ctx.pagarItem = null;

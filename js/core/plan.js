@@ -97,6 +97,7 @@ function baseItems(seed, state, payday) {
       it.valor = sozinha ? total : r2(total / 2);
       it.detalhe = sozinha ? "paguei sozinha" : `minha parte · total ${total.toFixed(2).replace(".", ",")}`;
     }
+    if (s.valorMoeda && total) it.valorMoeda = r2(s.valorMoeda * f * (it.valor / total));
     add(it);
   });
 

@@ -13,6 +13,7 @@
 // =========================================================
 import { backend } from "./backend.js";
 import { parte } from "./config.js";
+import { converterItens } from "./cambio.js";
 import { rede, carregarRede, aceitas, arroba } from "./rede.js";
 import { toISO, fromISO, proximoPagamento, pagamentoSeguinte, fator } from "./calendar.js";
 
@@ -26,8 +27,8 @@ export const chaveDe = (p) => (p.userId ? `u:${p.userId}` : `p:${p.id}`);
 export function contasDivididas(ctx) {
   const ps = pessoas(ctx.state);
   const pad = ps[0] ? ps[0].id : null;
-  const sem = parte(ctx.state, "semanais").filter((s) => s.compartilhado).map((s) => ({ ...s, freq: "semanal", origem: "semanais" }));
-  const out = parte(ctx.state, "compartilhadas").map((c) => ({ ...c, origem: "compartilhadas" }));
+  const sem = converterItens(ctx.state, parte(ctx.state, "semanais")).filter((s) => s.compartilhado).map((s) => ({ ...s, freq: "semanal", origem: "semanais" }));
+  const out = converterItens(ctx.state, parte(ctx.state, "compartilhadas")).map((c) => ({ ...c, origem: "compartilhadas" }));
   return [...sem, ...out].map((c) => {
     const pessoa = c.pessoa || pad;
     const p = ps.find((x) => x.id === pessoa);

@@ -1,13 +1,16 @@
 // =========================================================
-// FORMATAÇÃO — dinheiro e datas em português, moeda em USD.
+// FORMATAÇÃO — dinheiro e datas em português, na moeda principal.
 // =========================================================
+let SIMBOLO = "$";
+export const setSimbolo = (s) => { SIMBOLO = s || "$"; };
+
 export function money(n, cents = false) {
   const v = Math.round((n || 0) * 100) / 100;
   const s = Math.abs(v).toLocaleString("pt-BR", {
     minimumFractionDigits: cents ? 2 : 0,
     maximumFractionDigits: cents ? 2 : 0,
   });
-  return (v < 0 ? "−$" : "$") + s;
+  return (v < 0 ? "−" : "") + SIMBOLO + s;
 }
 
 export function dayLabel(d) {

@@ -13,6 +13,8 @@ import { renderDividir } from "./pages/dividir.js";
 import { invalidate } from "./core/plan.js";
 import { iniciar, agendar } from "./core/sync.js";
 import { getSeed } from "./core/config.js";
+import { setSimbolo } from "./core/format.js";
+import { simboloDe, moedaBase, atualizarMercado } from "./core/cambio.js";
 import { setCiclo, nextPayday } from "./core/calendar.js";
 import { dataTexto } from "./components/ui.js";
 import { renderAjustes } from "./pages/ajustes.js";
@@ -53,7 +55,9 @@ function render(opts = {}) {
   }
   nav.hidden = false;
   const page = current();
+  setSimbolo(simboloDe(moedaBase(ctx.state)));
   ctx.seed = getSeed(ctx.state);
+  atualizarMercado(ctx);
   // Ciclo de pagamento: se mudou, volta para o próximo pagamento
   const assinatura = JSON.stringify(ctx.seed.ciclo);
   if (assinatura !== ctx.cicloAtual) {
