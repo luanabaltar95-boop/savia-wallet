@@ -9,7 +9,7 @@ import { renderDividas } from "./pages/dividas.js";
 import { renderExtra } from "./pages/extra.js";
 import { renderContas } from "./pages/contas.js";
 import { renderPlanejar } from "./pages/planejar.js";
-import { renderJuntas } from "./pages/juntas.js";
+import { renderDividir } from "./pages/dividir.js";
 import { invalidate } from "./core/plan.js";
 import { iniciar, agendar } from "./core/sync.js";
 import { getSeed } from "./core/config.js";
@@ -69,7 +69,7 @@ function render(opts = {}) {
   else if (page === "extra" || page.startsWith("extra-")) renderExtra(main, ctx, page);
   else if (page === "planejar") renderPlanejar(main, ctx);
   else if (page === "contas") renderContas(main, ctx);
-  else if (page === "dividir") renderJuntas(main, ctx);
+  else if (page === "dividir") renderDividir(main, ctx);
   else if (page === "ajustes") renderAjustes(main, ctx);
   else renderEmBreve(main, page);
 

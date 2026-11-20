@@ -493,3 +493,18 @@ details.cats .sub-head .total { margin-left: auto; }
 .cx .name { font-weight: 600; }
 .cx-acoes { display: flex; align-items: center; gap: 12px; }
 .cx-acoes .btn { padding: 6px 14px; }
+
+/* Dividir — cartão por pessoa */
+.pessoa > .shares { margin-bottom: var(--s3); }
+.pessoa > .add-btn { margin-top: var(--s2); }
+.pessoa details.sub > summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; font-weight: 700; min-height: 44px; }
+.pessoa details.sub > summary::-webkit-details-marker { display: none; }
+.pessoa details.sub > summary::after { content: "›"; color: var(--ink-3); font-size: 20px; transition: transform .2s; }
+.pessoa details.sub[open] > summary::after { transform: rotate(90deg); }
+.pessoa details.sub > .regs, .pessoa details.sub > .shares { margin-bottom: var(--s3); }
+.pessoa .inline-btns { display: flex; flex-wrap: wrap; gap: var(--s2); }
+.pessoa .inline-btns .add-btn { flex: 1; }
+.dv-form { display: grid; gap: var(--s3); margin-top: var(--s3); }
+.dv-link { display: flex; align-items: flex-end; gap: var(--s2); margin-top: var(--s3); }
+.dv-link .field { flex: 1; }
+.pessoa .danger-link, .pessoa > details .link.danger:last-child { display: inline-block; margin-top: var(--s3); }
