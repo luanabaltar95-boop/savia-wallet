@@ -69,6 +69,48 @@ const real = {
     c.auth.onAuthStateChange((evento) => { if (evento === "PASSWORD_RECOVERY") fn(); });
   },
   async email() { const c = await cliente(); const { data } = await c.auth.getUser(); return data.user ? data.user.email : ""; },
+
+  // ---- Conexões ----
+  async conexoes() {
+    const c = await cliente();
+    const { data, error } = await c.rpc("wallet_minhas_conexoes");
+    if (error) throw error;
+    return data || [];
+  },
+  async conectar(usuario) {
+    const c = await cliente();
+    const { data, error } = await c.rpc("wallet_buscar_usuario", { p_usuario: usuario });
+    if (error) throw new Error("Não consegui procurar agora.");
+    const alvo = (data || [])[0];
+    if (!alvo) throw new Error(`Não achei @${usuario}.`);
+    const eu = (await c.auth.getUser()).data.user;
+    if (alvo.user_id === eu.id) throw new Error("Esse é você.");
+    const r = await c.from("wallet_conexoes").insert({ de: eu.id, para: alvo.user_id });
+    if (r.error) throw new Error(/duplicate/i.test(r.error.message) ? "Vocês já estão conectados ou o pedido já foi enviado." : "Não consegui enviar o pedido.");
+  },
+  async aceitar(id) { const c = await cliente(); const r = await c.from("wallet_conexoes").update({ status: "aceita" }).eq("id", id); if (r.error) throw r.error; },
+  async desconectar(id) { const c = await cliente(); const r = await c.from("wallet_conexoes").delete().eq("id", id); if (r.error) throw r.error; },
+
+  // ---- Compartilhados (contas divididas e dívidas entre duas pessoas) ----
+  async compartilhados() {
+    const c = await cliente();
+    const { data, error } = await c.from("wallet_compartilhados").select("*").order("criado_em");
+    if (error) throw error;
+    return data || [];
+  },
+  async compartilhar(item) {
+    const c = await cliente();
+    const eu = (await c.auth.getUser()).data.user;
+    const { data, error } = await c.from("wallet_compartilhados").insert({ ...item, dono: eu.id }).select().single();
+    if (error) throw new Error("Não consegui compartilhar. A conexão foi aceita?");
+    return data;
+  },
+  async atualizarCompartilhado(id, campos) {
+    const c = await cliente();
+    const r = await c.from("wallet_compartilhados").update({ ...campos, atualizado_em: new Date().toISOString() }).eq("id", id);
+    if (r.error) throw r.error;
+  },
+  async apagarCompartilhado(id) { const c = await cliente(); const r = await c.from("wallet_compartilhados").delete().eq("id", id); if (r.error) throw r.error; },
   async sair() { const c = await cliente(); await c.auth.signOut(); },
   async trocarSenha(nova) {
     const c = await cliente();
@@ -100,6 +142,22 @@ const mock = {
   async esqueci() {},
   async aoRecuperar() {},
   async email() { return "teste@exemplo.com"; },
+  async conexoes() {
+    const d = mdb(); const eu = d.sessao;
+    return (d.conexoes || []).filter((x) => x.de === eu || x.para === eu).map((x) => ({ id: x.id, outro: x.de === eu ? x.para : x.de, usuario: x.de === eu ? x.para : x.de, status: x.status, enviada: x.de === eu }));
+  },
+  async conectar(u) {
+    const d = mdb(); u = u.replace(/^@+/, "").toLowerCase();
+    if (!d.users[u]) throw new Error(`Não achei @${u}.`);
+    if (u === d.sessao) throw new Error("Esse é você.");
+    d.conexoes = [...(d.conexoes || []), { id: "c" + Date.now(), de: d.sessao, para: u, status: "pendente" }]; mput(d);
+  },
+  async aceitar(id) { const d = mdb(); d.conexoes = d.conexoes.map((x) => (x.id === id ? { ...x, status: "aceita" } : x)); mput(d); },
+  async desconectar(id) { const d = mdb(); d.conexoes = d.conexoes.filter((x) => x.id !== id); mput(d); },
+  async compartilhados() { const d = mdb(); return (d.itens || []).filter((x) => x.dono === d.sessao || x.com === d.sessao); },
+  async compartilhar(item) { const d = mdb(); const novo = { id: "i" + Date.now(), dono: d.sessao, pagamentos: [], freq: "unica", ...item }; d.itens = [...(d.itens || []), novo]; mput(d); return novo; },
+  async atualizarCompartilhado(id, campos) { const d = mdb(); d.itens = d.itens.map((x) => (x.id === id ? { ...x, ...campos } : x)); mput(d); },
+  async apagarCompartilhado(id) { const d = mdb(); d.itens = d.itens.filter((x) => x.id !== id); mput(d); },
   async sair() { const d = mdb(); d.sessao = null; mput(d); },
   async trocarSenha(n) { const d = mdb(); d.users[d.sessao] = n; mput(d); },
   async carregar() { const d = mdb(); return d.dados[d.sessao] || null; },

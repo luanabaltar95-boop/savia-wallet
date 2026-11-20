@@ -7,6 +7,7 @@
 import { syncNote, sairDaConta } from "../core/sync.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
+import { conexoesHtml, bindConexoes } from "./conexoes.js";
 import { parte, salvarParte } from "../core/config.js";
 import { FREQS } from "../core/plan.js";
 import { money, shortDate } from "../core/format.js";
@@ -345,6 +346,8 @@ export function renderAjustes(root, ctx) {
 
     ${blocos}
 
+    ${conexoesHtml(ctx)}
+
     <details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
       <summary class="sec-head"><h2>Meu perfil</h2><span class="total">@${esc(ctx.usuario || "")}</span></summary>
       <form class="sec-body" id="form-perfil" novalidate autocomplete="off">
@@ -564,6 +567,7 @@ export function renderAjustes(root, ctx) {
   });
 
   bindDados(root, ctx);
+  bindConexoes(root, ctx);
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

@@ -485,3 +485,11 @@ details.cats .sub-head .total { margin-left: auto; }
 .login-trocar { margin: var(--s4) 0 0; color: var(--ink-2); font-size: var(--t-sm); }
 .login > .btn.block { max-width: 100%; }
 .login > .link { margin-top: var(--s2); }
+
+/* Conexões (Ajustes) */
+.cx-lista { list-style: none; margin: 0 0 var(--s3, 12px); padding: 0; display: grid; gap: 8px; }
+.cx { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line, #e6e6e6); }
+.cx:last-child { border-bottom: 0; }
+.cx .name { font-weight: 600; }
+.cx-acoes { display: flex; align-items: center; gap: 12px; }
+.cx-acoes .btn { padding: 6px 14px; }

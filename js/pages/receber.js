@@ -15,7 +15,6 @@ export function receberHtml(ctx) {
   const hojeISO = toISO(new Date());
   const recHtml = rec.map((r) => {
     const tags = [];
-    if (r.nota) tags.push(chip(r.nota));
     if (r.previsto) tags.push(chip(`previsto ${shortDate(fromISO(r.previsto))}`, "plan"));
     if (r.falta <= 0) tags.push(chip("recebido ✓", "ok"));
     const pagamentos = (state.recebimentos || []).filter((x) => x.receberId === r.id)
@@ -51,7 +50,6 @@ export function receberHtml(ctx) {
             ${field({ id: "rn-nome", name: "nome", label: "Quem me deve / de onde", type: "text" })}
             ${field({ id: "rn-valor", name: "valor", label: "Valor", prefix: "$", placeholder: "0,00" })}
             ${field({ id: "rn-prev", name: "previsto", label: "Previsão (opcional)", type: "date" })}
-            ${field({ id: "rn-nota", name: "nota", label: "Observação (opcional)", type: "text" })}
           </div>
           <div class="inline-btns"><button class="btn primary" type="submit">Adicionar</button><button class="btn" type="button" id="rn-cancel">Cancelar</button></div>
         </form>` : `<button class="btn primary add-btn" id="rn-open">+ Adicionar</button>`}
@@ -94,7 +92,7 @@ export function bindReceber(root, ctx) {
     e.preventDefault();
     const d = Object.fromEntries(new FormData(rnForm));
     if (!d.nome.trim() || !(Number(d.valor) > 0)) return;
-    salvarParte(state, "receber", [...parte(state, "receber"), { id: "r-" + Date.now().toString(36), nome: d.nome.trim(), valor: Number(d.valor), previsto: d.previsto || "", nota: (d.nota || "").trim() }]);
+    salvarParte(state, "receber", [...parte(state, "receber"), { id: "r-" + Date.now().toString(36), nome: d.nome.trim(), valor: Number(d.valor), previsto: d.previsto || "", }]);
     ctx.receberNovo = false;
     salvar();
   });

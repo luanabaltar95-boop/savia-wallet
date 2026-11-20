@@ -1,11 +1,12 @@
 // =========================================================
-// PÁGINA COMPARTILHADO — contas divididas. Por enquanto você registra
-// tudo; no futuro dá para convidar a outra pessoa.
+// PÁGINA DIVIDIR — contas divididas, o que me devem e o que
+// compartilho com minhas conexões (aparece nas duas carteiras).
 // Semanais divididas meio a meio; marque "paguei sozinha" na semana
 // em que pagou tudo — o plano da Hoje usa o valor certo.
 // =========================================================
 import { syncNote } from "../core/sync.js";
 import { receberHtml, bindReceber } from "./receber.js";
+import { compartilhadosHtml, bindCompartilhados } from "./compartilhados.js";
 import { divisao } from "../core/plan.js";
 import { parte, salvarParte } from "../core/config.js";
 import { toISO, fromISO, addDays, nextPayday } from "../core/calendar.js";
@@ -56,8 +57,7 @@ export function renderJuntas(root, ctx) {
     ...outras,
   ].map((c, i) => `<li class="share">
       <div><div class="name">${esc(c.nome)}</div>
-        <div class="meta">${chip(`${money(Number(c.valor), true)} ${FREQ_TXT[c.freq] || ""}`)}${chip(`minha parte ${money(Number(c.valor) / 2, true)}`, "plan")}</div>
-        ${c.obs ? `<div class="hint">${esc(c.obs)}</div>` : ""}</div>
+        <div class="meta">${chip(`${money(Number(c.valor), true)} ${FREQ_TXT[c.freq] || ""}`)}${chip(`minha parte ${money(Number(c.valor) / 2, true)}`, "plan")}</div></div>
       ${i >= semanais.length ? `<button class="link" data-rmc="${i - semanais.length}">remover</button>` : ""}
     </li>`).join("");
 
@@ -85,12 +85,15 @@ export function renderJuntas(root, ctx) {
         </form>` : `<button class="btn primary add-btn" id="nc-open">+ Adicionar</button>`}
     </section>
 
+    ${compartilhadosHtml(ctx)}
+
     ${receberHtml(ctx)}
 
     ${syncNote(ctx)}
   `;
 
   bindReceber(root, ctx);
+  bindCompartilhados(root, ctx);
   bindWeekNav(root, ctx);
 
   root.querySelectorAll("[data-toggle]").forEach((b) => {
@@ -116,7 +119,7 @@ export function renderJuntas(root, ctx) {
       // Semanal entra também no plano da Hoje (dividida)
       salvarParte(state, "semanais", [...parte(state, "semanais"), { id: "u-" + Date.now().toString(36), nome: d.nome.trim(), valor: Number(d.valor), grupo: "vida", compartilhado: true }]);
     } else {
-      salvarParte(state, "compartilhadas", [...parte(state, "compartilhadas"), { id: "c-" + Date.now().toString(36), nome: d.nome.trim(), valor: Number(d.valor), freq: d["nc-freq"], obs: "" }]);
+      salvarParte(state, "compartilhadas", [...parte(state, "compartilhadas"), { id: "c-" + Date.now().toString(36), nome: d.nome.trim(), valor: Number(d.valor), freq: d["nc-freq"] }]);
     }
     ctx.novaConta = false;
     persist(); ctx.rerender();
