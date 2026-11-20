@@ -15,7 +15,7 @@ const FREQ_TXT = { unica: "", mensal: "por mês", trimestral: "a cada 3 meses" }
 
 export function compartilhadosHtml(ctx) {
   const r = rede(ctx);
-  if (!r.carregado) carregarRede(ctx);
+  carregarRede(ctx);
   const eu = ctx.userId;
   const hoje = toISO(new Date());
   const cards = r.itens.map((it) => {

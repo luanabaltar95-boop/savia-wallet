@@ -8,7 +8,7 @@ import { field, esc, toast } from "../components/ui.js";
 
 export function conexoesHtml(ctx) {
   const r = rede(ctx);
-  if (!r.carregado) carregarRede(ctx);
+  carregarRede(ctx);
   const linha = (c) => {
     const acoes = c.status === "aceita"
       ? `<button class="link danger" type="button" data-cx-rm="${c.id}">remover</button>`
