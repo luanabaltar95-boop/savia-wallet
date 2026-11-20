@@ -6,7 +6,6 @@ import { field } from "../components/ui.js";
 import { MARCA } from "../config/marca.js";
 import { limparUsuario, usuarioValido, criarPerfil, conferir, perfilDe } from "../core/auth.js";
 import { salvarReg, abrirCarteira } from "../core/sync.js";
-import { save } from "../core/store.js";
 
 const LOGO = `<img class="login-logo" src="icons/icon-192.png" alt="" width="72" height="72">`;
 
@@ -31,36 +30,12 @@ export function renderLogin(root, ctx) {
       </form>
       <p class="login-trocar">${criar ? "Já tenho usuário?" : "Ainda não tenho usuário?"}</p>
       <button class="btn block" id="lg-trocar">${criar ? "Entrar" : "Criar usuário"}</button>
-      <button class="link" id="lg-trazer" type="button">Trazer minha carteira de outro lugar</button>
-      <input id="lg-arquivo" type="file" accept="application/json,.json" hidden>
     </section>`;
 
   const trocar = root.querySelector("#lg-trocar");
   trocar.onclick = () => { ctx.loginModo = criar ? "entrar" : "criar"; ctx.rerender(); };
 
   const msg = (t) => { root.querySelector("#lg-msg").innerHTML = `<span class="status warn">${t}</span>`; };
-
-  // Trazer carteira (arquivo exportado em Ajustes → Meus dados): usuário + dados
-  const arq = root.querySelector("#lg-arquivo");
-  root.querySelector("#lg-trazer").onclick = () => arq.click();
-  arq.onchange = async () => {
-    const f = arq.files[0];
-    if (!f) return;
-    let pac;
-    try { pac = JSON.parse(await f.text()); } catch { return msg("Arquivo inválido."); }
-    if (!pac || pac.app !== "carteira" || !pac.state || !pac.perfil || !pac.perfil.hash) return msg("Esse arquivo não tem usuário. Crie o usuário e importe em Ajustes → Meus dados.");
-    const u = limparUsuario(pac.perfil.usuario);
-    if (perfilDe(reg, u)) return msg(`@${u} já existe neste aparelho. Entre e importe em Ajustes → Meus dados.`);
-    const doc = reg.perfis.length ? `carteira-${u.replace(/[^a-z0-9]/g, "-")}` : "carteira";
-    reg.perfis = [...reg.perfis, { usuario: u, salt: pac.perfil.salt, iter: pac.perfil.iter, hash: pac.perfil.hash, doc, criado: Date.now() }];
-    const { perfil, ...st } = pac.state;
-    save({ ...st, updatedAt: Date.now() }, doc);
-    reg.ultimo = u;
-    ctx.loginModo = "entrar";
-    await salvarReg(ctx);
-    ctx.rerender();
-    root.querySelector("#lg-msg").innerHTML = `<span class="status ok">Carteira de @${u} pronta. Digite a senha para entrar.</span>`;
-  };
 
   const form = root.querySelector("#login");
   const abrir = async (p) => {
