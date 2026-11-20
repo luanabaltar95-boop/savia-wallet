@@ -22,7 +22,7 @@ async function escrever(ctx) {
   if (writing) { again = true; return; }
   writing = true;
   try { await backend.salvar(ctx.userId, ctx.state); setStatus(ctx, "cloud"); }
-  catch { setStatus(ctx, "error"); }
+  catch (err) { console.error("salvar", err); ctx.erro = err && err.message; setStatus(ctx, "error"); }
   finally { writing = false; if (again) { again = false; escrever(ctx); } }
 }
 
@@ -43,7 +43,7 @@ export async function abrirCarteira(ctx, sessao) {
     if (remoto && (remoto.updatedAt || 0) >= (ctx.state.updatedAt || 0)) { ctx.state = { ...ctx.state, ...remoto }; save(ctx.state, ctx.usuario); }
     else if ((ctx.state.updatedAt || 0) > ((remoto && remoto.updatedAt) || 0)) await escrever(ctx);
     setStatus(ctx, "cloud");
-  } catch { setStatus(ctx, "error"); }
+  } catch (err) { console.error("carregar", err); ctx.erro = err && err.message; setStatus(ctx, "error"); }
   ctx.rerender();
 }
 
@@ -67,6 +67,6 @@ export async function iniciar(ctx) {
 }
 
 export function syncNote(ctx) {
-  if (ctx.sync === "error") return `<p class="foot" id="sync-note">Sem conexão agora. Está salvo neste aparelho e sobe quando voltar.</p>`;
+  if (ctx.sync === "error") return `<p class="foot" id="sync-note">Não consegui falar com o servidor agora. Está salvo neste aparelho.${ctx.erro ? `<br><small>${String(ctx.erro).replace(/[<>&]/g, "")}</small>` : ""}</p>`;
   return `<span id="sync-note" hidden></span>`;
 }
