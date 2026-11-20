@@ -12,7 +12,7 @@ import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
-import { card, field, levels, mission, payRow, esc } from "../components/ui.js";
+import { card, field, levels, mission, payRow, stats, esc } from "../components/ui.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
 
@@ -78,11 +78,19 @@ export function renderHoje(root, ctx) {
     </ul>`,
   }) : "";
 
+  // Disponível: o que entra menos o que já paguei nesta semana (com juros e extra na dívida)
+  const jaPaguei = Object.values(pagos).reduce((a, p) => a + (Number(p && p.valor) || 0) + (Number(p && p.juros) || 0), 0) + extraFeito;
+  const disponivel = efetiva.valor - jaPaguei;
+  const saldoSemana = stats([
+    { label: "Entra", valor: money(efetiva.valor, true) },
+    { label: "Já paguei", valor: money(jaPaguei, true) },
+    { label: "Disponível", valor: money(disponivel, true) },
+  ]);
+
   const listaSexta = card({
     title: getCiclo().tipo === "semanal" && Number(getCiclo().diaSemana ?? 5) === 5 ? "Na sexta, nesta ordem" : "No dia do pagamento, nesta ordem",
-    total: money(efetiva.valor - ataque),
     hint: efetiva.previsao ? "" : "De cima para baixo — marco cada uma quando concluir.",
-    body: `<ul class="missions">${fazer.map((i) => {
+    body: `<div class="disp">${saldoSemana}</div><ul class="missions">${fazer.map((i) => {
       const info = pagamento(state, iso, i.id);
       return payRow(i, { valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: vaiParaPoupanca(i, payday) ? pp.banco : "" });
     }).join("")}</ul>`,

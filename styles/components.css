@@ -522,3 +522,6 @@ details.cats .sub-head .total { margin-left: auto; }
 #dv-primeira { flex-wrap: wrap; margin-bottom: var(--s4); }
 .dv-conta .meta { display: flex; flex-wrap: wrap; gap: 6px; }
 .dv-conta .meta .chip { margin: 0; }
+.disp { margin-bottom: var(--s4); }
+.disp .level:last-child { background: var(--green-soft); }
+.disp .level:last-child b { color: var(--green); }
