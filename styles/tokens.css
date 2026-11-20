@@ -1,0 +1,50 @@
+/* =========================================================
+   TOKENS — única fonte de cores, tipografia, espaços e raios.
+   Nunca use cor/tamanho "solto" nos componentes: use estas variáveis.
+   ========================================================= */
+:root {
+  color-scheme: light;
+
+  /* Fundo e superfícies (off-white quente, nada de branco clínico) */
+  --bg: #f6f2ea;
+  --surface: #fffdf8;
+  --surface-2: #efe9df;
+  --line: #e4dccf;
+
+  /* Texto */
+  --ink: #2a2620;
+  --ink-2: #6e665b;
+  --ink-3: #9a9184;
+
+  /* Estabilidade / progresso */
+  --green: #3c8a66;
+  --green-soft: #dcefe3;
+  /* Planejamento */
+  --lilac: #7467b3;
+  --lilac-soft: #ebe7f7;
+  /* Atenção (sem vermelho agressivo) */
+  --amber: #b97624;
+  --amber-soft: #f8e9d2;
+  --coral: #c9644b;
+  --coral-soft: #f8e0d8;
+
+  /* Tipografia */
+  /* SF Pro nos aparelhos Apple; Inter (quase idêntica) nos demais */
+  --f-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", system-ui, "Segoe UI", sans-serif;
+  --t-xs: 13px;
+  --t-sm: 15px;
+  --t-md: 17px;
+  --t-lg: 22px;
+  --t-xl: clamp(36px, 10vw, 52px);
+
+  /* Espaços */
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px; --s5: 24px; --s6: 32px; --s7: 48px;
+
+  /* Raios e sombra */
+  --r-sm: 10px; --r-md: 16px; --r-lg: 24px; --r-full: 999px;
+  --shadow: 0 1px 2px rgba(70, 50, 20, .05), 0 8px 24px rgba(70, 50, 20, .06);
+
+  /* Layout */
+  --app-w: 560px;
+  --nav-h: 68px;
+}
