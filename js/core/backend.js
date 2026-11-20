@@ -19,6 +19,12 @@ async function emailDoLogin(c, login) {
 }
 
 let sb = null;
+// Meu id pela sessão salva (não depende de rede)
+async function meuId(c) {
+  const { data } = await c.auth.getSession();
+  return data.session?.user?.id || null;
+}
+
 async function cliente() {
   if (sb) return sb;
   const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
@@ -70,7 +76,7 @@ const real = {
   },
   async email() { const c = await cliente(); const { data } = await c.auth.getUser(); return data.user ? data.user.email : ""; },
 
-  // ---- Conexões ----
+  // ---- Conexões ---- (de/dono vêm do banco: default auth.uid())
   async conexoes() {
     const c = await cliente();
     const { data, error } = await c.rpc("wallet_minhas_conexoes");
@@ -83,9 +89,9 @@ const real = {
     if (error) throw new Error("Não consegui procurar agora.");
     const alvo = (data || [])[0];
     if (!alvo) throw new Error(`Não achei @${usuario}.`);
-    const eu = (await c.auth.getUser()).data.user;
-    if (alvo.user_id === eu.id) throw new Error("Esse é você.");
-    const r = await c.from("wallet_conexoes").insert({ de: eu.id, para: alvo.user_id });
+    const eu = await meuId(c);
+    if (eu && alvo.user_id === eu) throw new Error("Esse é você.");
+    const r = await c.from("wallet_conexoes").insert({ para: alvo.user_id });
     if (r.error) throw new Error(/duplicate/i.test(r.error.message) ? "Vocês já estão conectados ou o pedido já foi enviado." : "Não consegui enviar o pedido.");
   },
   async aceitar(id) { const c = await cliente(); const r = await c.from("wallet_conexoes").update({ status: "aceita" }).eq("id", id); if (r.error) throw r.error; },
@@ -100,8 +106,7 @@ const real = {
   },
   async compartilhar(item) {
     const c = await cliente();
-    const eu = (await c.auth.getUser()).data.user;
-    const { data, error } = await c.from("wallet_compartilhados").insert({ ...item, dono: eu.id }).select().single();
+    const { data, error } = await c.from("wallet_compartilhados").insert(item).select().single();
     if (error) throw new Error("Não consegui compartilhar. A conexão foi aceita?");
     return data;
   },
