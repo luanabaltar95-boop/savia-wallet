@@ -38,6 +38,7 @@ export async function abrirCarteira(ctx, sessao) {
   ctx.state = load(sessao.usuario);
   ctx.payday = null;
   try {
+    await backend.reivindicar();
     const remoto = await backend.carregar();
     if (remoto && (remoto.updatedAt || 0) >= (ctx.state.updatedAt || 0)) { ctx.state = { ...ctx.state, ...remoto }; save(ctx.state, ctx.usuario); }
     else if ((ctx.state.updatedAt || 0) > ((remoto && remoto.updatedAt) || 0)) await escrever(ctx);
@@ -55,6 +56,8 @@ export async function sairDaConta(ctx) {
 export async function iniciar(ctx) {
   ctx.sync = "loading";
   if (!configurado()) return setStatus(ctx, "config");
+  // Chegou pelo link "esqueci minha senha": mostra a tela de nova senha
+  backend.aoRecuperar(() => { ctx.recuperar = true; ctx.rerender(); });
   try {
     const s = await backend.sessao();
     if (s) await abrirCarteira(ctx, s);

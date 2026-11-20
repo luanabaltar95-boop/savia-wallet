@@ -17,7 +17,7 @@ import { setCiclo, nextPayday } from "./core/calendar.js";
 import { dataTexto } from "./components/ui.js";
 import { renderAjustes } from "./pages/ajustes.js";
 import { renderHome } from "./pages/home.js";
-import { renderLogin } from "./pages/login.js";
+import { renderLogin, renderNovaSenha } from "./pages/login.js";
 import { renderNav, PAGINAS } from "./components/nav.js";
 
 // Usuário logado (Supabase) e a carteira dele — preenchidos em iniciar()
@@ -45,6 +45,7 @@ function current() {
 
 function render(opts = {}) {
   // Cadeado: carregando a conta → espera; sem usuário → criar; sem sessão → entrar
+  if (ctx.recuperar) { nav.hidden = true; return renderNovaSenha(main, ctx); }
   if (!ctx.usuario) {
     nav.hidden = true;
     if (ctx.sync === "loading") { main.innerHTML = `<p class="foot">Carregando…</p>`; return; }
