@@ -106,6 +106,35 @@ export function renderHoje(root, ctx) {
     { label: "Disponível", valor: money(cx.total.disponivel, true) },
   ]) + `<ul class="cx-lista-hoje">${cx.contas.map(linhaCx).join("")}</ul>`;
 
+  // Período fechado: só o resumo do que paguei; o que faltou já está no próximo
+  const PER = { semanal: "semana", quinzenal: "quinzena", mensal: "mês" }[getCiclo().tipo] || "período";
+  if ((state.fechadas || {})[iso]) {
+    const pagosLista = week.items.filter((i) => pagos[i.id]).map((i) => {
+      const p = pagamento(state, iso, i.id) || {};
+      return `<li class="reg"><span class="reg-info">${esc(i.nome)}${p.quitado === false || (p.valor != null && p.valor < i.valor - 0.005 && !p.quitado) ? " · parte" : ""}</span><span class="reg-val">${money((Number(p.valor) || 0) + (Number(p.juros) || 0), true)}</span></li>`;
+    }).join("");
+    root.innerHTML = `
+      ${weekNav(payday, "Pagamentos")}
+      ${card({
+        title: `${PER[0].toUpperCase() + PER.slice(1)} fechad${PER === "mês" ? "o" : "a"} ✓`,
+        body: `${stats([
+            { label: "Entrou", valor: money(cx.total.entra, true) },
+            { label: "Paguei", valor: money(cx.total.paguei, true) },
+            { label: "Sobrou", valor: money(cx.total.disponivel, true) },
+          ])}
+          ${cx.total.ajuste ? `<p class="hint">taxas e câmbio ${money(cx.total.ajuste, true)}</p>` : ""}
+          ${extraFeito ? `<p class="hint">a mais na dívida ${money(extraFeito, true)}</p>` : ""}`,
+      })}
+      ${card({ title: "O que eu paguei", total: money(cx.total.paguei), body: pagosLista ? `<ul class="regs">${pagosLista}</ul>` : `<p class="hint">Nada marcado como pago.</p>` })}
+      ${fica.length ? card({ title: `Foi para ${PER === "mês" ? "o próximo mês" : `a próxima ${PER}`}`, total: money(totalFica),
+          body: `<ul class="regs">${fica.map((i) => `<li class="reg"><span class="reg-info">${esc(i.nome)}</span><span class="reg-val">${money(falta(i), true)}</span></li>`).join("")}</ul>` }) : ""}
+      <div class="fechada"><button class="btn block" id="reabrir">Reabrir ${PER}</button></div>
+      ${syncNote(ctx)}`;
+    bindWeekNav(root, ctx);
+    root.querySelector("#reabrir").onclick = () => { const f = { ...(state.fechadas || {}) }; delete f[iso]; state.fechadas = f; state.updatedAt = Date.now(); ctx.persist(); ctx.rerender(); };
+    return;
+  }
+
   const listaSexta = card({
     title: getCiclo().tipo === "semanal" && Number(getCiclo().diaSemana ?? 5) === 5 ? "Na sexta, nesta ordem" : "No dia do pagamento, nesta ordem",
     hint: efetiva.previsao ? "" : "De cima para baixo — marco cada uma quando concluir.",
@@ -186,9 +215,7 @@ export function renderHoje(root, ctx) {
     ${card({ title: "Para a dívida", cls: "attack", body: attackBody })}
     ${previsao}
 
-    ${(state.fechadas || {})[iso]
-      ? `<div class="fechada">${`<span class="status ok">Semana fechada ✓</span>`}<button class="link" id="reabrir">reabrir</button></div>`
-      : `<button class="btn primary block" id="fechar-semana">Fechar semana${totalFica ? ` · ${money(totalFica)} vai para a próxima` : ""}</button>`}
+    <button class="btn primary block" id="fechar-semana">Fechar ${PER}${totalFica ? ` · ${money(totalFica)} vai para ${PER === "mês" ? "o próximo" : "a próxima"}` : ""}</button>
 
     <details class="more">
       <summary>Ver tudo da semana por categoria</summary>
@@ -236,16 +263,14 @@ export function renderHoje(root, ctx) {
   // Fechar semana: o que faltou já vai para a próxima; abro a próxima semana
   const fs = root.querySelector("#fechar-semana");
   if (fs) fs.onclick = () => {
-    if (!fs.dataset.confirma) { fs.dataset.confirma = "1"; fs.textContent = "Confirmar: fechar semana"; return; }
+    if (!fs.dataset.confirma) { fs.dataset.confirma = "1"; fs.textContent = `Confirmar: fechar ${PER}`; return; }
     state.fechadas = { ...(state.fechadas || {}), [iso]: Date.now() };
     persist();
     ctx.payday = pagamentoSeguinte(payday);
-    toast("Semana fechada ✓");
+    toast("Fechado ✓");
     ctx.rerender();
     window.scrollTo(0, 0);
   };
-  const ra = root.querySelector("#reabrir");
-  if (ra) ra.onclick = () => { const f = { ...(state.fechadas || {}) }; delete f[iso]; state.fechadas = f; persist(); ctx.rerender(); };
 
   // Marcar: abre a confirmação (valor + juros). Desmarcar: desfaz na hora.
   root.querySelectorAll("[data-pago]:not([disabled])").forEach((el) => {
