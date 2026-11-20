@@ -28,12 +28,12 @@ export function renderLogin(root, ctx) {
         <p class="preview" id="lg-msg" aria-live="polite"></p>
         <button class="btn primary block" type="submit">${criar ? "Criar e entrar" : "Entrar"}</button>
       </form>
-      <button class="btn block" id="lg-trocar">${criar ? (reg.perfis.length ? "Já tenho usuário" : "") : "Criar usuário novo"}</button>
+      <p class="login-trocar">${criar ? "Já tenho usuário?" : "Ainda não tenho usuário?"}</p>
+      <button class="btn block" id="lg-trocar">${criar ? "Entrar" : "Criar usuário"}</button>
     </section>`;
 
   const trocar = root.querySelector("#lg-trocar");
-  if (!trocar.textContent) trocar.remove();
-  else trocar.onclick = () => { ctx.loginModo = criar ? "entrar" : "criar"; ctx.rerender(); };
+  trocar.onclick = () => { ctx.loginModo = criar ? "entrar" : "criar"; ctx.rerender(); };
 
   const form = root.querySelector("#login");
   const msg = (t) => { root.querySelector("#lg-msg").innerHTML = `<span class="status warn">${t}</span>`; };
@@ -57,6 +57,7 @@ export function renderLogin(root, ctx) {
       if (senha !== form.senha2.value) return msg("As senhas não são iguais.");
       return abrir(await criarPerfil(reg, usuario, senha));
     }
+    if (!perfilDe(reg, usuario)) return msg(reg.perfis.length ? "Usuário ou senha incorretos." : "Nenhum usuário neste aparelho ainda. Toque em Criar usuário.");
     const p = await conferir(reg, usuario, senha);
     if (!p) return msg("Usuário ou senha incorretos.");
     abrir(p);

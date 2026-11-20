@@ -482,3 +482,5 @@ details.cats .sub-head .total { margin-left: auto; }
 .conta-user { display: grid; justify-items: center; gap: var(--s2); margin: var(--s5) 0; }
 .field textarea { width: 100%; min-height: 96px; padding: var(--s3); font: inherit; font-size: 14px; color: var(--ink); background: var(--surface-2); border: 1px solid transparent; border-radius: var(--r-md); resize: vertical; }
 .field textarea:focus { border-color: var(--lilac); outline: none; }
+.login-trocar { margin: var(--s4) 0 0; color: var(--ink-2); font-size: var(--t-sm); }
+.login > .btn.block { max-width: 100%; }
