@@ -37,7 +37,7 @@ const real = {
     const email = await emailDoLogin(c, login);
     if (!email) throw new Error("Usuário ou senha incorretos.");
     const { data, error } = await c.auth.signInWithPassword({ email, password: senha });
-    if (error) throw new Error("Usuário ou senha incorretos.");
+    if (error) { console.error("signIn", error); throw new Error(/invalid/i.test(error.message) ? "Usuário ou senha incorretos." : `Não consegui entrar (${error.status || ""} ${error.message}).`); }
     return { usuario: usuarioDe(data.user), id: data.user.id };
   },
   async criar(usuario, email, senha) {
@@ -46,7 +46,11 @@ const real = {
     if (livre.error) throw new Error("Não consegui verificar o usuário agora.");
     if (!livre.data) throw new Error("Esse usuário já existe.");
     const { data, error } = await c.auth.signUp({ email, password: senha, options: { data: { usuario }, emailRedirectTo: voltarPara() } });
-    if (error) throw new Error(/registered|exists/i.test(error.message) ? "Esse e-mail já tem usuário. Toque em Entrar." : "Não consegui criar o usuário.");
+    if (error) {
+      console.error("signUp", error);
+      if (/registered|exists/i.test(error.message)) throw new Error("Esse e-mail já tem usuário. Toque em Entrar.");
+      throw new Error(`Não consegui criar o usuário (${error.status || ""} ${error.message}).`);
+    }
     if (!data.user) throw new Error("Não consegui criar o usuário.");
     if (!data.session) throw new Error("Usuário criado. Peça para desligar 'Confirm email' no Supabase.");
     await c.from("wallet_perfis").insert({ user_id: data.user.id, usuario });
