@@ -109,9 +109,11 @@ export function renderHoje(root, ctx) {
   // Período fechado: só o resumo do que paguei; o que faltou já está no próximo
   const PER = { semanal: "semana", quinzenal: "quinzena", mensal: "mês" }[getCiclo().tipo] || "período";
   if ((state.fechadas || {})[iso]) {
+    const ficaIds = new Set(fica.map((i) => i.id));
+    const linhaResumo = (nome, valor, tag = "") => `<li><div class="rs-nome"><span>${esc(nome)}</span>${tag}</div><b>${money(valor, true)}</b></li>`;
     const pagosLista = week.items.filter((i) => pagos[i.id]).map((i) => {
       const p = pagamento(state, iso, i.id) || {};
-      return `<li class="reg"><span class="reg-info">${esc(i.nome)}${p.quitado === false || (p.valor != null && p.valor < i.valor - 0.005 && !p.quitado) ? " · parte" : ""}</span><span class="reg-val">${money((Number(p.valor) || 0) + (Number(p.juros) || 0), true)}</span></li>`;
+      return linhaResumo(i.nome, (Number(p.valor) || 0) + (Number(p.juros) || 0), ficaIds.has(i.id) ? `<span class="chip miss">paguei uma parte</span>` : "");
     }).join("");
     root.innerHTML = `
       ${weekNav(payday, "Pagamentos")}
@@ -125,9 +127,9 @@ export function renderHoje(root, ctx) {
           ${cx.total.ajuste ? `<p class="hint">taxas e câmbio ${money(cx.total.ajuste, true)}</p>` : ""}
           ${extraFeito ? `<p class="hint">a mais na dívida ${money(extraFeito, true)}</p>` : ""}`,
       })}
-      ${card({ title: "O que eu paguei", total: money(cx.total.paguei), body: pagosLista ? `<ul class="regs">${pagosLista}</ul>` : `<p class="hint">Nada marcado como pago.</p>` })}
+      ${card({ title: "O que eu paguei", total: money(cx.total.paguei), body: pagosLista ? `<ul class="resumo-lista">${pagosLista}</ul>` : `<p class="hint">Nada marcado como pago.</p>` })}
       ${fica.length ? card({ title: `Foi para ${PER === "mês" ? "o próximo mês" : `a próxima ${PER}`}`, total: money(totalFica),
-          body: `<ul class="regs">${fica.map((i) => `<li class="reg"><span class="reg-info">${esc(i.nome)}</span><span class="reg-val">${money(falta(i), true)}</span></li>`).join("")}</ul>` }) : ""}
+          body: `<ul class="resumo-lista">${fica.map((i) => linhaResumo(i.nome, falta(i))).join("")}</ul>` }) : ""}
       <div class="fechada"><button class="btn block" id="reabrir">Reabrir ${PER}</button></div>
       ${syncNote(ctx)}`;
     bindWeekNav(root, ctx);
