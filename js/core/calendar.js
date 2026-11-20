@@ -90,6 +90,14 @@ export function periodo(payday) {
 // Quantas semanas o período tem (custos semanais × isso)
 export const fator = (payday) => periodo(payday).dias / 7;
 
+// Semana em aberto: o próximo pagamento, pulando as semanas que já fechei
+export function semanaAberta(state, today = new Date()) {
+  let p = proximoPagamento(today);
+  const fechadas = (state && state.fechadas) || {};
+  for (let i = 0; fechadas[toISO(p)] && i < 52; i++) p = pagamentoSeguinte(p);
+  return p;
+}
+
 // Próximo pagamento (hoje, se hoje for dia de pagamento)
 export function nextPayday(today = new Date()) {
   return proximoPagamento(today);

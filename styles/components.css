@@ -534,3 +534,4 @@ details.cats .sub-head .total { margin-left: auto; }
 .cx-top .neg { color: var(--red, #b3402f); }
 .ajuste-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2); }
 .ajuste-form .field { flex: 1 1 100%; }
+.fechada { display: flex; justify-content: center; align-items: center; gap: var(--s3); margin: var(--s4) 0; }

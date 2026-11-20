@@ -15,7 +15,7 @@ import { iniciar, agendar } from "./core/sync.js";
 import { getSeed } from "./core/config.js";
 import { setSimbolo } from "./core/format.js";
 import { simboloDe, moedaBase, atualizarMercado } from "./core/cambio.js";
-import { setCiclo, nextPayday } from "./core/calendar.js";
+import { setCiclo, semanaAberta } from "./core/calendar.js";
 import { dataTexto } from "./components/ui.js";
 import { renderAjustes } from "./pages/ajustes.js";
 import { renderHome } from "./pages/home.js";
@@ -62,9 +62,10 @@ function render(opts = {}) {
   const assinatura = JSON.stringify(ctx.seed.ciclo);
   if (assinatura !== ctx.cicloAtual) {
     setCiclo(ctx.seed.ciclo);
-    if (ctx.cicloAtual) ctx.payday = nextPayday();
+    if (ctx.cicloAtual) ctx.payday = semanaAberta(ctx.state);
     ctx.cicloAtual = assinatura;
   }
+  if (!ctx.payday) ctx.payday = semanaAberta(ctx.state);
   renderNav(nav, page, ctx.menuAberto);
 
   if (page === "home") renderHome(main, ctx);

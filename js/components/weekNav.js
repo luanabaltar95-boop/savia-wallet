@@ -1,7 +1,7 @@
 // =========================================================
 // NAVEGADOR DO PERÍODO — usado por Hoje, Gastos, Extra e Dividir.
-// O pagamento cobre do dia seguinte até o próximo pagamento
-// (semanal: pagamento 20/11 → semana 21 – 27).
+// A semana fecha no dia do pagamento: pagamento 20/11 → semana 14 – 20.
+// Nesse dia eu pago tudo e fecho a semana; o que faltar vai para a próxima.
 // =========================================================
 import { periodo, pagamentoAnterior, pagamentoSeguinte, getCiclo } from "../core/calendar.js";
 
@@ -10,8 +10,8 @@ const NEXT = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
 // Sábado e sexta da semana coberta pelo pagamento
-export const inicioSemana = (payday) => periodo(payday).ini;
-export const fimSemana = (payday) => periodo(payday).fim;
+export const inicioSemana = (payday) => periodo(pagamentoAnterior(payday)).ini;
+export const fimSemana = (payday) => payday;
 const dm = (d) => `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 
 export function weekNav(payday, titulo = "Pagamentos", sub, extra = "") {

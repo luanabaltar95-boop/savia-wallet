@@ -10,9 +10,9 @@ import { carteiraVazia } from "./home.js";
 import { poupanca, vaiParaPoupanca } from "../core/destino.js";
 import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
-import { toISO, addDays, nextPayday, getCiclo } from "../core/calendar.js";
+import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
-import { card, field, select, levels, mission, payRow, stats, segmented, esc } from "../components/ui.js";
+import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem, ajustarSaldo, desfazerAjustes } from "../core/caixa.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
@@ -186,6 +186,10 @@ export function renderHoje(root, ctx) {
     ${card({ title: "Para a dívida", cls: "attack", body: attackBody })}
     ${previsao}
 
+    ${(state.fechadas || {})[iso]
+      ? `<div class="fechada">${`<span class="status ok">Semana fechada ✓</span>`}<button class="link" id="reabrir">reabrir</button></div>`
+      : `<button class="btn primary block" id="fechar-semana">Fechar semana${totalFica ? ` · ${money(totalFica)} vai para a próxima` : ""}</button>`}
+
     <details class="more">
       <summary>Ver tudo da semana por categoria</summary>
       <div class="more-body">${detalhe}</div>
@@ -228,6 +232,20 @@ export function renderHoje(root, ctx) {
     ajustarSaldo(state, iso, f.dataset.ajuste, Number(f.dataset.calc), Number(raw));
     ctx.ajustarBanco = null; persist(); ctx.rerender();
   }));
+
+  // Fechar semana: o que faltou já vai para a próxima; abro a próxima semana
+  const fs = root.querySelector("#fechar-semana");
+  if (fs) fs.onclick = () => {
+    if (!fs.dataset.confirma) { fs.dataset.confirma = "1"; fs.textContent = "Confirmar: fechar semana"; return; }
+    state.fechadas = { ...(state.fechadas || {}), [iso]: Date.now() };
+    persist();
+    ctx.payday = pagamentoSeguinte(payday);
+    toast("Semana fechada ✓");
+    ctx.rerender();
+    window.scrollTo(0, 0);
+  };
+  const ra = root.querySelector("#reabrir");
+  if (ra) ra.onclick = () => { const f = { ...(state.fechadas || {}) }; delete f[iso]; state.fechadas = f; persist(); ctx.rerender(); };
 
   // Marcar: abre a confirmação (valor + juros). Desmarcar: desfaz na hora.
   root.querySelectorAll("[data-pago]:not([disabled])").forEach((el) => {
