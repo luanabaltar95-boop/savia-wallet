@@ -535,3 +535,10 @@ details.cats .sub-head .total { margin-left: auto; }
 .ajuste-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--s2); }
 .ajuste-form .field { flex: 1 1 100%; }
 .fechada { display: flex; justify-content: center; align-items: center; gap: var(--s3); margin: var(--s4) 0; }
+
+/* Organizar contas */
+.ordem-acoes { display: flex; gap: var(--s4); justify-content: flex-end; margin: var(--s1) 0 var(--s2); }
+.ordem-row { display: flex; align-items: center; gap: var(--s2); padding: var(--s2) 0; border-bottom: 1px solid var(--line); }
+.ordem-info { flex: 1; display: grid; min-width: 0; }
+.ordem-info .name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ordem-row .btn.icon:disabled { opacity: .3; }

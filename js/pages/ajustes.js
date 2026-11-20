@@ -77,6 +77,20 @@ function linhaConta(src, r, i, state) {
     </form>
   </details>`;
 }
+// Organizar: no grupo aberto, cada conta ganha ↑ ↓ (a ordem fica salva)
+let organizando = null;
+const SETA_CIMA = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 15l6-6 6 6"/></svg>`;
+const SETA_BAIXO = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>`;
+
+function linhaOrdem(x, pos, n, state) {
+  const v = emOutraMoeda(state, x.r) ? fmtMoeda(x.r.valorMoeda, x.r.moeda) : money(x.r.valor, true);
+  return `<div class="ordem-row">
+    <div class="ordem-info"><span class="name">${esc(x.r.nome || "Sem nome")}</span><span class="hint">${x.r.dia ? `dia ${x.r.dia} · ` : ""}${v}</span></div>
+    <button class="btn icon" data-mover="${x.src}|${x.i}|-1" aria-label="Subir" ${pos === 0 ? "disabled" : ""}>${SETA_CIMA}</button>
+    <button class="btn icon" data-mover="${x.src}|${x.i}|1" aria-label="Descer" ${pos === n - 1 ? "disabled" : ""}>${SETA_BAIXO}</button>
+  </div>`;
+}
+
 function contasHtml(state) {
   const todas = [
     ...parte(state, "semanais").map((r, i) => ({ src: "semanais", r, i })),
@@ -86,9 +100,14 @@ function contasHtml(state) {
     const its = todas.filter((x) => freqDe(x.src, x.r) === f.id);
     if (!its.length) return "";
     const total = its.reduce((t, x) => t + Number(x.r.valor || 0), 0);
+    const org = organizando === f.id;
     return `<div class="cat-grupo">
       <div class="cat-head"><h4>${esc(f.label)}</h4><span>${money(total, true)}</span></div>
-      <div class="rows">${its.map((x) => linhaConta(x.src, x.r, x.i, state)).join("")}</div>
+      ${its.length > 1 ? `<div class="ordem-acoes">
+        <button class="link" data-organizar="${f.id}">${org ? "Pronto" : "Organizar"}</button>
+        ${org && f.id !== "semanal" ? `<button class="link" data-por-dia="${f.id}">por dia do vencimento</button>` : ""}
+      </div>` : ""}
+      <div class="rows">${org ? its.map((x, k) => linhaOrdem(x, k, its.length, state)).join("") : its.map((x) => linhaConta(x.src, x.r, x.i, state)).join("")}</div>
     </div>`;
   }).join("");
   return `<section class="sub" data-sub="contas">
@@ -556,6 +575,31 @@ export function renderAjustes(root, ctx) {
       salvar();
     };
   });
+  // Organizar a ordem das contas
+  root.querySelectorAll("[data-organizar]").forEach((b) => (b.onclick = () => {
+    organizando = organizando === b.dataset.organizar ? null : b.dataset.organizar;
+    ctx.openSec = "contas"; ctx.rerender();
+  }));
+  root.querySelectorAll("[data-mover]").forEach((b) => (b.onclick = () => {
+    const [src, i, dir] = b.dataset.mover.split("|");
+    const lista = parte(state, src).slice();
+    const freq = freqDe(src, lista[i]);
+    // vizinho do mesmo grupo (mesma frequência)
+    let j = Number(i) + Number(dir);
+    while (j >= 0 && j < lista.length && freqDe(src, lista[j]) !== freq) j += Number(dir);
+    if (j < 0 || j >= lista.length) return;
+    [lista[i], lista[j]] = [lista[j], lista[i]];
+    salvarParte(state, src, lista);
+    ctx.openSec = "contas"; persist(); ctx.rerender();
+  }));
+  root.querySelectorAll("[data-por-dia]").forEach((b) => (b.onclick = () => {
+    const lista = parte(state, "mensais");
+    const grupo = lista.filter((r) => freqDe("mensais", r) === b.dataset.porDia).sort((a, c) => (Number(a.dia) || 99) - (Number(c.dia) || 99));
+    let k = 0;
+    salvarParte(state, "mensais", lista.map((r) => (freqDe("mensais", r) === b.dataset.porDia ? grupo[k++] : r)));
+    ctx.openSec = "contas"; persist(); ctx.rerender();
+  }));
+
   const addConta = root.querySelector("#add-conta");
   if (addConta) addConta.onclick = () => {
     const rows = [...parte(state, "mensais"), { id: novoId(), nome: "", valor: 0, dia: 1, freq: "mensal", categoria: "outras", grupo: "contas", diaConfirmar: true }];
