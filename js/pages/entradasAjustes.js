@@ -29,7 +29,7 @@ export function entradasAjustesHtml(ctx, n) {
         ${field({ id: "ec-nome", name: "nome", label: "Nome", type: "text", value: e.nome || "", placeholder: e.tipo === "fixo" ? "Salário" : "Lyft, gorjeta, freela…" })}
         ${field({ id: "ec-valor", name: "valor", label: e.tipo === "fixo" ? "Valor" : "Valor de sempre (estimativa)", value: e.valor ?? "", prefix: "$", placeholder: "0,00" })}
         ${semanal ? select({ id: "ec-dia", label: "Dia que cai", options: DIAS, value: String(e.dia ?? "5") }) : `<p class="hint">Cai no dia do pagamento.</p>`}
-        ${select({ id: "ec-conta", label: "Cai na conta", options: contas.map((b) => ({ id: b.id, label: b.banco })), value: e.conta || contas[0].id })}
+        ${select({ id: "ec-conta", label: "Cai na conta", options: contas.map((b) => ({ id: b.id, label: b.banco })), value: e.conta || contas[0].id, note: `Falta um banco? <a href="#ajustes" data-ir-bancos>Adicionar em Meus bancos</a>` })}
         ${e.tipo === "variavel" && calcs.length ? select({ id: "ec-calc", label: "Somar da calculadora", options: [{ id: "", label: "Não, eu digito" }, ...calcs.map((f) => ({ id: f.id, label: f.nome }))], value: e.calc || "" }) : ""}
         ${e.tipo === "fixo" && contas.length > 1 ? `
           ${select({ id: "ec-div-conta", label: "Parte em outra conta (opcional)", options: [{ id: "", label: "Não" }, ...contas.map((b) => ({ id: b.id, label: b.banco }))], value: div.conta || "" })}
@@ -66,6 +66,7 @@ export function bindEntradasAjustes(root, ctx) {
   const nova = root.querySelector("#ec-nova");
   if (nova) nova.onclick = () => { ctx.entAjuste = "nova"; ctx.entTipo = "fixo"; ctx.openSec = "entradas"; ctx.rerender(); };
   root.querySelectorAll("[data-ec-edit]").forEach((b) => (b.onclick = () => { ctx.entAjuste = b.dataset.ecEdit; ctx.openSec = "entradas"; ctx.rerender(); }));
+  root.querySelectorAll("[data-ir-bancos]").forEach((a) => (a.onclick = (ev) => { ev.preventDefault(); ctx.entAjuste = null; ctx.bancoAjuste = "novo"; ctx.openSec = "bancos"; ctx.rerender({ focus: "bc-banco" }); }));
   const f = root.querySelector("#ent-cad");
   if (!f) return;
   // Trocar fixo/variável redesenha o formulário (campos diferentes)
