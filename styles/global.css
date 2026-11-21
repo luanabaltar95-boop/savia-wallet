@@ -73,3 +73,8 @@ button, input { font: inherit; color: inherit; }
 .menu-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--green-soft); color: var(--green); display: grid; place-items: center; flex: none; }
 .menu-icon svg { width: 22px; height: 22px; }
 @media (prefers-reduced-motion: no-preference) { .menu-sheet { animation: up .18s ease-out; } }
+
+/* Barra com atalhos: cada item divide o espaço; o + fica no meio */
+.nav ul { display: flex; }
+.nav ul > li { flex: 1 1 0; display: flex; justify-content: center; }
+.nav ul > li:has(.plus) { flex: 0 0 auto; padding: 0 var(--s2); }

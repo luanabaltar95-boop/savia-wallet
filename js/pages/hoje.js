@@ -10,7 +10,7 @@ import { carteiraVazia } from "./home.js";
 import { poupanca, vaiParaPoupanca } from "../core/destino.js";
 import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
-import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte } from "../core/calendar.js";
+import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
 import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
@@ -18,6 +18,7 @@ import { saldoAtual, previstoNaConta, conferir } from "../core/saldo.js";
 import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
 import { entradasLinhas, bindEntradasHoje } from "./entradasHoje.js";
+import { ativo, nomesMetas } from "../core/modulos.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
@@ -149,7 +150,7 @@ export function renderHoje(root, ctx) {
   }
 
   const listaSexta = card({
-    title: getCiclo().tipo === "semanal" && Number(getCiclo().diaSemana ?? 5) === 5 ? "Na sexta, nesta ordem" : "No dia do pagamento, nesta ordem",
+    title: getCiclo().tipo === "semanal" ? `${[0, 6].includes(Number(getCiclo().diaSemana ?? 5)) ? "No" : "Na"} ${DIAS_SEMANA[Number(getCiclo().diaSemana ?? 5)].toLowerCase()}, nesta ordem` : "No dia do pagamento, nesta ordem",
     hint: efetiva.previsao ? "" : "De cima para baixo — marco cada uma quando concluir.",
     body: `<div class="disp">${saldoSemana}</div><ul class="missions">${fazer.map((i) => {
       const info = pagamento(state, iso, i.id);
@@ -212,7 +213,7 @@ export function renderHoje(root, ctx) {
         ${Number(r.extras) ? `<p class="hint">+ ${money(Number(r.extras), true)} de outras entradas</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
         ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo })}
+        ${ativo(state, "metas") ? levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo, nomes: nomesMetas(state) }) : ""}
         <a class="link" href="#ajustes" data-abrir-sec="entradas">editar minhas entradas</a>`,
     }) : card({
       title: "Quanto vai entrar",
@@ -230,13 +231,13 @@ export function renderHoje(root, ctx) {
         </div><p class="hint">O resto cai no ${esc(contasCorrentes(state)[0].banco)}.</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
         ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo })}`,
+        ${ativo(state, "metas") ? levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo, nomes: nomesMetas(state) }) : ""}`,
     })}
 
     ${listaSexta}
     ${ondeFica}
     ${ficaHtml}
-    ${card({ title: "Para a dívida", cls: "attack", body: attackBody })}
+    ${ativo(state, "dividas") ? card({ title: "Para a dívida", cls: "attack", body: attackBody }) : ""}
     ${previsao}
 
     <button class="btn primary block" id="fechar-semana">Fechar ${PER}${totalFica ? ` · ${money(totalFica)} vai para ${PER === "mês" ? "o próximo" : "a próxima"}` : ""}</button>

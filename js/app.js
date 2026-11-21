@@ -21,6 +21,7 @@ import { renderAjustes } from "./pages/ajustes.js";
 import { renderHome } from "./pages/home.js";
 import { renderLogin, renderNovaSenha } from "./pages/login.js";
 import { renderNav, PAGINAS } from "./components/nav.js";
+import { paginaLiberada } from "./core/modulos.js";
 
 // Usuário logado (Supabase) e a carteira dele — preenchidos em iniciar()
 let ultimo = "";
@@ -54,7 +55,9 @@ function render(opts = {}) {
     return renderLogin(main, ctx);
   }
   nav.hidden = false;
-  const page = current();
+  let page = current();
+  // Página de um módulo desligado: volta para a Home
+  if (!paginaLiberada(ctx.state, page.startsWith("extra-") ? "extra" : page)) page = "home";
   setSimbolo(simboloDe(moedaBase(ctx.state)));
   ctx.seed = getSeed(ctx.state);
   atualizarMercado(ctx);
@@ -66,7 +69,7 @@ function render(opts = {}) {
     ctx.cicloAtual = assinatura;
   }
   if (!ctx.payday) ctx.payday = semanaAberta(ctx.state);
-  renderNav(nav, page, ctx.menuAberto);
+  renderNav(nav, page, ctx.menuAberto, ctx.state);
 
   if (page === "home") renderHome(main, ctx);
   else if (page === "hoje") renderHoje(main, ctx);
@@ -104,12 +107,12 @@ window.addEventListener("hashchange", () => { ctx.menuAberto = false; render(); 
 nav.addEventListener("click", (e) => {
   // não deixa o clique chegar ao "fechar ao tocar fora" (o botão é redesenhado)
   if (e.target.closest("#plus") || e.target.closest("[data-close]")) e.stopPropagation();
-  if (e.target.closest("#plus")) { ctx.menuAberto = !ctx.menuAberto; renderNav(nav, current(), ctx.menuAberto); }
-  else if (e.target.closest("[data-close]")) { ctx.menuAberto = false; renderNav(nav, current(), false); }
+  if (e.target.closest("#plus")) { ctx.menuAberto = !ctx.menuAberto; renderNav(nav, current(), ctx.menuAberto, ctx.state); }
+  else if (e.target.closest("[data-close]")) { ctx.menuAberto = false; renderNav(nav, current(), false, ctx.state); }
 });
 document.addEventListener("click", (e) => {
-  if (ctx.menuAberto && !e.target.closest("#nav")) { ctx.menuAberto = false; renderNav(nav, current(), false); }
+  if (ctx.menuAberto && !e.target.closest("#nav")) { ctx.menuAberto = false; renderNav(nav, current(), false, ctx.state); }
 });
-document.addEventListener("keydown", (e) => { if (e.key === "Escape" && ctx.menuAberto) { ctx.menuAberto = false; renderNav(nav, current(), false); } });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && ctx.menuAberto) { ctx.menuAberto = false; renderNav(nav, current(), false, ctx.state); } });
 render();
 iniciar(ctx);

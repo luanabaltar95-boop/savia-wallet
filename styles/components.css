@@ -571,3 +571,20 @@ details.cats .sub-head .total { margin-left: auto; }
 .movs > summary { font-weight: 600; cursor: pointer; min-height: 40px; display: flex; align-items: center; }
 .movs .resumo-lista li { flex-wrap: wrap; }
 .movs b.pos { color: var(--green); }
+
+/* Meu menu — módulos */
+.mods { list-style: none; margin: var(--s3) 0; padding: 0; display: grid; }
+.mod { display: flex; align-items: center; justify-content: space-between; gap: var(--s3); padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.mod:first-child { border-top: 0; }
+.mod.off { opacity: .5; }
+.mod .link.on { color: var(--green); text-decoration: none; font-weight: 700; }
+.mod-sw { display: flex; align-items: center; gap: var(--s3); cursor: pointer; min-width: 0; }
+.mod-sw input { position: absolute; opacity: 0; pointer-events: none; }
+.mod-sw .sw { flex: none; width: 44px; height: 26px; border-radius: 13px; background: var(--line); position: relative; transition: background .2s; }
+.mod-sw .sw::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: transform .2s; }
+.mod-sw input:checked + .sw { background: var(--green); }
+.mod-sw input:checked + .sw::after { transform: translateX(18px); }
+.mod-sw input:focus-visible + .sw { outline: 2px solid var(--green); outline-offset: 2px; }
+.mod-txt { display: grid; min-width: 0; }
+.mod-txt small { color: var(--ink-3); }
+.sub-h { margin: var(--s4) 0 var(--s2); font-size: 14px; color: var(--ink-2); }

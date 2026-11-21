@@ -8,6 +8,8 @@ import { syncNote, sairDaConta } from "../core/sync.js";
 import { MOEDAS, moedaBase, emOutraMoeda, converter, fmtMoeda } from "../core/cambio.js";
 import { cambioHtml, bindCambio } from "./cambio.js";
 import { entradasAjustesHtml, bindEntradasAjustes } from "./entradasAjustes.js";
+import { meuMenuHtml, bindMeuMenu } from "./meuMenu.js";
+import { ativo, blocoLiberado } from "../core/modulos.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
 import { conexoesHtml, bindConexoes } from "./conexoes.js";
@@ -356,7 +358,8 @@ export function renderAjustes(root, ctx) {
       <div class="save-bar"><button class="btn primary" type="submit">Salvar</button><span class="save-msg" aria-live="polite"></span></div>
     </form>`;
 
-  const blocos = BLOCOS.map((b) => `
+  // Blocos de módulos desligados não aparecem (numeração segue a ordem)
+  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i + 1 })).map((b) => `
     <details class="card sec" data-sec="${b.id}" ${ctx.openSec === b.id ? "open" : ""}>
       <summary class="sec-head"><h2><span class="passo">${b.n}</span>${b.titulo}</h2><span class="total">${resumoBloco(b)}</span></summary>
       <div class="sec-body">
@@ -374,9 +377,11 @@ export function renderAjustes(root, ctx) {
 
     ${blocos}
 
-    ${cambioHtml(ctx)}
+    ${meuMenuHtml(ctx)}
 
-    ${conexoesHtml(ctx)}
+    ${ativo(state, "moedas") ? cambioHtml(ctx) : ""}
+
+    ${ativo(state, "dividir") ? conexoesHtml(ctx) : ""}
 
     <details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
       <summary class="sec-head"><h2>Meu perfil</h2><span class="total">@${esc(ctx.usuario || "")}</span></summary>
@@ -633,6 +638,7 @@ export function renderAjustes(root, ctx) {
   bindConexoes(root, ctx);
   bindCambio(root, ctx);
   bindEntradasAjustes(root, ctx);
+  bindMeuMenu(root, ctx);
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

@@ -1,7 +1,9 @@
 // =========================================================
-// NAVEGAÇÃO — barra inferior: Home | + | Hoje.
-// O "+" abre o menu com as outras páginas.
+// NAVEGAÇÃO — barra inferior: Home | (atalho) | + | (atalho) | Hoje.
+// O "+" abre o menu: Minhas contas, os módulos ligados (na ordem
+// que escolhi) e Ajustes. Atalhos e ordem: Ajustes → Meu menu.
 // =========================================================
+import { ordemMenu, ativo, atalhosDe } from "../core/modulos.js";
 const svg = (d) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
 
 export const PRINCIPAIS = [
@@ -19,22 +21,33 @@ export const MENU = [
 ];
 
 export const PAGINAS = [...PRINCIPAIS, ...MENU].map((p) => p.id);
+const porId = (id) => MENU.find((m) => m.id === id);
+
+// Menu da pessoa: base + módulos ligados (na ordem dela) + Ajustes
+export function menuDe(state) {
+  const mods = ordemMenu(state).filter((m) => ativo(state, m.id)).map((m) => porId(m.pagina)).filter(Boolean);
+  return [porId("contas"), ...mods, porId("ajustes")];
+}
 
 const PLUS = svg('<path d="M12 5v14M5 12h14"/>');
 
-export function renderNav(nav, page, aberto) {
+export function renderNav(nav, page, aberto, state) {
   if (page.startsWith("extra-")) page = "extra";
-  const noMenu = MENU.some((m) => m.id === page);
+  const menu = menuDe(state);
+  const atalhos = atalhosDe(state).map((id) => porId(id)).filter(Boolean);
+  const noMenu = menu.some((m) => m.id === page) && !atalhos.some((a) => a.id === page);
   const tab = (t) => `<li><a href="#${t.id}" ${t.id === page ? 'aria-current="page"' : ""}>${t.icon}<span>${t.label}</span></a></li>`;
   nav.innerHTML = `
     ${aberto ? `<div class="menu-backdrop" data-close></div>
       <div class="menu-sheet" id="menu-sheet" role="menu">
-        ${MENU.map((m) => `<a role="menuitem" href="#${m.id}" class="menu-item ${m.id === page ? "on" : ""}">
+        ${menu.map((m) => `<a role="menuitem" href="#${m.id}" class="menu-item ${m.id === page ? "on" : ""}">
           <span class="menu-icon">${m.icon}</span><span><b>${m.label}</b><small>${m.desc}</small></span></a>`).join("")}
       </div>` : ""}
     <ul>
       ${tab(PRINCIPAIS[0])}
+      ${atalhos[0] ? tab(atalhos[0]) : ""}
       <li><button class="plus ${aberto ? "open" : ""} ${noMenu ? "on" : ""}" id="plus" aria-expanded="${!!aberto}" aria-controls="menu-sheet" aria-label="Mais páginas">${PLUS}</button></li>
+      ${atalhos[1] ? tab(atalhos[1]) : ""}
       ${tab(PRINCIPAIS[1])}
     </ul>`;
 }

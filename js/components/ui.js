@@ -72,11 +72,11 @@ export function segmented({ name, label, options, value }) {
 }
 
 // Progresso até o próximo nível + os três níveis
-export function levels({ renda, piso, meta, turbo }) {
+export function levels({ renda, piso, meta, turbo, nomes = {} }) {
   const steps = [
-    { nome: "Piso", valor: piso },
-    { nome: "Meta", valor: meta },
-    { nome: "Turbo", valor: turbo },
+    { nome: nomes.piso || "Piso", valor: piso },
+    { nome: nomes.meta || "Meta", valor: meta },
+    { nome: nomes.turbo || "Turbo", valor: turbo },
   ];
   const next = steps.find((s) => renda < s.valor);
   const prev = [...steps].reverse().find((s) => renda >= s.valor);
@@ -85,9 +85,9 @@ export function levels({ renda, piso, meta, turbo }) {
 
   let status;
   if (!renda) status = `<span class="status">Quando eu digitar quanto entrou, aparece meu nível.</span>`;
-  else if (!prev) status = `<span class="status warn">Faltam ${money(piso - renda)} para o piso.</span>`;
-  else if (next) status = `<span class="status ok">${prev.nome} garantido. Faltam ${money(next.valor - renda)} para ${next.nome === "Meta" ? "a Meta" : "o Turbo"}.</span>`;
-  else status = `<span class="status ok">Turbo! Semana excelente.</span>`;
+  else if (!prev) status = `<span class="status warn">Faltam ${money(piso - renda)} para ${steps[0].nome}.</span>`;
+  else if (next) status = `<span class="status ok">${prev.nome} ✓ · faltam ${money(next.valor - renda)} para ${next.nome}.</span>`;
+  else status = `<span class="status ok">${steps[2].nome} ✓ · semana excelente.</span>`;
 
   const tiles = steps.map((s) => {
     const ok = renda >= s.valor;
