@@ -598,3 +598,10 @@ details.cats .sub-head .total { margin-left: auto; }
 .imp-lista .field { margin: 0; }
 .imp-lista .field .lbl:empty, .imp-lista .field .note:empty { display: none; }
 .check { display: flex; gap: var(--s2); align-items: flex-start; margin: var(--s3) 0; }
+
+/* Começar — modelos prontos */
+.modelos { display: grid; gap: var(--s2); }
+.modelo { display: grid; gap: 2px; text-align: left; padding: var(--s3) var(--s4); border-radius: 16px; border: 1.5px solid var(--line); background: var(--surface, #fff); font: inherit; color: var(--ink); cursor: pointer; }
+.modelo small { color: var(--ink-3); }
+.modelo.on { border-color: var(--green); background: var(--green-soft); }
+.link.pular { display: block; margin: var(--s3) auto var(--s6, 32px); }

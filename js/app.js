@@ -22,6 +22,7 @@ import { renderHome } from "./pages/home.js";
 import { renderLogin, renderNovaSenha } from "./pages/login.js";
 import { renderNav, PAGINAS } from "./components/nav.js";
 import { paginaLiberada } from "./core/modulos.js";
+import { renderComecar, precisaComecar } from "./pages/comecar.js";
 
 // Usuário logado (Supabase) e a carteira dele — preenchidos em iniciar()
 let ultimo = "";
@@ -71,7 +72,9 @@ function render(opts = {}) {
   if (!ctx.payday) ctx.payday = semanaAberta(ctx.state);
   renderNav(nav, page, ctx.menuAberto, ctx.state);
 
-  if (page === "home") renderHome(main, ctx);
+  // Primeira vez: monto o app com poucas perguntas
+  if (page === "home" && precisaComecar(ctx)) { nav.hidden = true; renderComecar(main, ctx); }
+  else if (page === "home") renderHome(main, ctx);
   else if (page === "hoje") renderHoje(main, ctx);
   else if (page === "dividas") renderDividas(main, ctx);
   else if (page === "extra" || page.startsWith("extra-")) renderExtra(main, ctx, page);

@@ -26,8 +26,9 @@ import { weekNav, bindWeekNav } from "../components/weekNav.js";
 export function renderHoje(root, ctx) {
   const { seed, state, persist } = ctx;
   if (carteiraVazia(seed)) {
-    root.innerHTML = `<header class="page-head"><p class="eyebrow">Pagamentos</p><h1>Ainda vazia</h1></header>
-      ${card({ title: "Primeiro, montar a carteira", body: `<p>Nada cadastrado ainda.</p><a class="btn primary" href="#ajustes">Ir para Ajustes</a>` })}`;
+    root.innerHTML = `<header class="page-head"><p class="eyebrow">Pagamentos</p><h1>Falta pouco</h1></header>
+      ${card({ title: "Agora, minhas contas", body: `<p class="hint">Cadastro o que pago (aluguel, celular, cartões) e a lista de cada pagamento aparece aqui.</p><a class="btn primary" href="#ajustes" data-abrir-sec="contas">Cadastrar contas</a>` })}`;
+    root.querySelectorAll("[data-abrir-sec]").forEach((a) => (a.onclick = () => { ctx.openSec = a.dataset.abrirSec; }));
     return;
   }
   if (!ctx.payday) ctx.payday = nextPayday();

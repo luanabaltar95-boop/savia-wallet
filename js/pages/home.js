@@ -8,6 +8,11 @@ import { jornada } from "../core/jornada.js";
 import { money, monthYear, dayLabel } from "../core/format.js";
 import { card, stats, esc } from "../components/ui.js";
 import { scene, montarCena } from "../components/scene.js";
+import { ativo } from "../core/modulos.js";
+import { rendaEfetiva } from "../core/plan.js";
+import { caixaDaSemana, contasCorrentes } from "../core/caixa.js";
+import { saldoAtual } from "../core/saldo.js";
+import { toISO, semanaAberta } from "../core/calendar.js";
 
 const GEAR = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
 
@@ -55,8 +60,30 @@ function boasVindas(root, ctx) {
   root.querySelectorAll("[data-passo]").forEach((a) => a.addEventListener("click", () => { ctx.openSec = a.dataset.passo; }));
 }
 
+// Sem o módulo de dívidas: a Home é o resumo da semana e das contas
+function homeSimples(root, ctx) {
+  const { seed, state } = ctx;
+  const iso = toISO(semanaAberta(state));
+  const cx = caixaDaSemana(state, iso, rendaEfetiva(seed, state, iso).valor);
+  const contas = contasCorrentes(state).map((b) => ({ b, s: saldoAtual(state, b) }));
+  root.innerHTML = `
+    <header class="page-head home-head">
+      <div class="brand"><img class="brand-logo" src="icons/icon-192.png" alt="" width="44" height="44">
+        <div><p class="eyebrow">${MARCA}</p><h1>Minha carteira</h1></div></div>
+      <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
+    </header>
+    ${card({ title: "Esta semana", body: `${stats([
+        { label: "Entra", valor: money(cx.total.entra) },
+        { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste) },
+        { label: "Disponível", valor: money(cx.total.disponivel) },
+      ])}<a class="btn primary" href="#hoje">Ver o que pagar</a>` })}
+    ${card({ title: "Nas minhas contas", body: `<ul class="resumo-lista">${contas.map(({ b, s }) => `<li><div class="rs-nome"><span>${esc(b.banco)}</span></div><b>${s == null ? "—" : money(s, true)}</b></li>`).join("")}</ul><a class="link" href="#contas">ver contas</a>` })}
+    ${syncNote(ctx)}`;
+}
+
 export function renderHome(root, ctx) {
   const { seed, state } = ctx;
+  if (!ativo(state, "dividas")) return homeSimples(root, ctx);
   if (carteiraVazia(seed)) return boasVindas(root, ctx);
   const j = jornada(seed, state);
   const n = j.fases.length;
