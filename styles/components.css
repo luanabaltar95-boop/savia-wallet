@@ -588,3 +588,13 @@ details.cats .sub-head .total { margin-left: auto; }
 .mod-txt { display: grid; min-width: 0; }
 .mod-txt small { color: var(--ink-3); }
 .sub-h { margin: var(--s4) 0 var(--s2); font-size: 14px; color: var(--ink-2); }
+
+/* Importar extrato */
+.imp-lista { list-style: none; margin: var(--s3) 0; padding: 0; }
+.imp-lista li { display: grid; gap: 4px; padding: var(--s3) 0; border-top: 1px solid var(--line); }
+.imp-lista li:first-child { border-top: 0; }
+.imp-lista li.off { opacity: .5; }
+.imp-lista b.pos { color: var(--green); }
+.imp-lista .field { margin: 0; }
+.imp-lista .field .lbl:empty, .imp-lista .field .note:empty { display: none; }
+.check { display: flex; gap: var(--s2); align-items: flex-start; margin: var(--s3) 0; }

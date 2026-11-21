@@ -11,6 +11,7 @@ import { base, movimentos, previstoNaConta, transferir, apagarTransferencia } fr
 import { toISO } from "../core/calendar.js";
 import { card, field, select, chip, esc, toast } from "../components/ui.js";
 import { gastoFormHtml, gastosListaHtml, bindGastos } from "./gastos.js";
+import { importarHtml, bindImportar } from "./importar.js";
 import { bindWeekNav } from "../components/weekNav.js";
 
 const COPY = `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>`;
@@ -91,6 +92,7 @@ export function renderContas(root, ctx) {
     ${gastoFormHtml(ctx)}
     ${bancos.length ? card({ title: "Total nas contas", body: `<div class="big ${total < 0 ? "neg" : ""}">${money(total, true)}</div>` }) : ""}
     ${transf}
+    ${importarHtml(ctx)}
     ${bancos.map(cartao).join("")}
     ${editando === "novo" ? formBanco() : `<button class="btn primary add-btn" id="add-banco">+ Adicionar</button>`}
     ${gastosListaHtml(ctx)}
@@ -98,6 +100,7 @@ export function renderContas(root, ctx) {
   `;
 
   bindGastos(root, ctx);
+  bindImportar(root, ctx);
   bindWeekNav(root, ctx);
   root.querySelectorAll("[data-ver]").forEach((b) => (b.onclick = () => { ctx.verConta = { ...ver, [b.dataset.ver]: !ver[b.dataset.ver] }; ctx.rerender(); }));
   root.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => {
