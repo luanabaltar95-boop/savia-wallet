@@ -9,15 +9,14 @@
 // =========================================================
 import { bancosDe, CONTA } from "./gastos.js";
 import { jurosDa } from "./plan.js";
+import { parte } from "./config.js";
+import { usaEntradas, entradasDaSemana } from "./entradas.js";
 
 const n = (v) => Number(v) || 0;
 const r2 = (v) => Math.round(v * 100) / 100;
 
-export const contasCorrentes = (state) => {
-  const l = bancosDe(state).filter((b) => b.tipo !== "savings");
-  return l.length ? l : [{ id: CONTA, banco: "Minha conta", tipo: "checking" }];
-};
-export const contaPrincipal = (state) => contasCorrentes(state)[0].id;
+import { contasCorrentes, contaPrincipal } from "./contasCorrentes.js";
+export { contasCorrentes, contaPrincipal };
 
 // De qual conta costumo pagar esse item (o último pagamento dele)
 export function bancoDoItem(state, itemId) {
@@ -35,9 +34,16 @@ export function caixaDaSemana(state, iso, efetivaValor, extraFeito = 0) {
   const pri = contaPrincipal(state);
   const linha = {};
   contas.forEach((b) => { linha[b.id] = { ...b, entra: 0, paguei: 0, ajuste: 0 }; });
-  const split = (state.renda[iso] || {}).porBanco || {};
   let fora = 0;
-  Object.entries(split).forEach(([id, v]) => { if (linha[id] && id !== pri) { linha[id].entra += n(v); fora += n(v); } });
+  if (usaEntradas(state, iso)) {
+    // Cada entrada cadastrada cai na conta dela (e nas divisões)
+    entradasDaSemana({ fontes: parte(state, "fontes") }, state, iso).forEach((e) => e.partes.forEach((p) => {
+      if (linha[p.conta] && p.conta !== pri) { linha[p.conta].entra += p.valor; fora += p.valor; }
+    }));
+  } else {
+    const split = (state.renda[iso] || {}).porBanco || {};
+    Object.entries(split).forEach(([id, v]) => { if (linha[id] && id !== pri) { linha[id].entra += n(v); fora += n(v); } });
+  }
   // Tudo que entra (antes dos juros) menos o que caiu nas outras contas fica na principal
   linha[pri].entra += efetivaValor + jurosDa(state, iso) - fora;
   Object.values(state.pagos[iso] || {}).forEach((p) => {

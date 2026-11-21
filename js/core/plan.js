@@ -9,6 +9,9 @@ import { turnosDaSemana, liquido, gasDaSemana, custoGas } from "./lyft.js";
 import { simplesDaSemana, simplesLiquido } from "./extra.js";
 import { ajudaDa } from "./juntas.js";
 import { recebidoValor } from "./receber.js";
+import { parte } from "./config.js";
+import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas } from "./entradas.js";
+import { liquidoFonte } from "./extra.js";
 
 // O plano começa em seed.inicio (primeiro pagamento depois de montar a carteira)
 
@@ -40,13 +43,31 @@ export function lyftDa(state, iso) {
 // Conta compartilhada na semana: "dividido" (padrão) ou "sozinha"
 export const divisao = (state, iso, id) => ((state.compart || {})[iso] || {})[id] || "dividido";
 
+// Extra Money que não está ligado a nenhuma entrada cadastrada
+function extraSolto(state, iso) {
+  const ligadas = calcsUsadas(state);
+  const fontes = parte(state, "fontes");
+  const ligado = fontes.filter((f) => ligadas.includes(f.id)).reduce((a, f) => a + liquidoFonte(state, f, iso), 0);
+  return lyftDa(state, iso).valor - ligado;
+}
+
 export function rendaDa(state, iso) {
   const r = state.renda[iso] || {};
+  if (usaEntradas(state, iso)) {
+    const ent = totalEntradas(entradasDaSemana({ fontes: parte(state, "fontes") }, state, iso));
+    return ent + extraSolto(state, iso) + (Number(r.extras) || 0) + ajudaDa(state, iso) + recebidoValor(state, iso);
+  }
   return (Number(r.salario) || 0) + (Number(r.extras) || 0) + lyftDa(state, iso).valor + ajudaDa(state, iso) + recebidoValor(state, iso);
 }
 
 // Renda usada no plano: a digitada; se ainda não tem, a meta semanal (previsão)
 export function rendaEfetiva(seed, state, iso) {
+  if (usaEntradas(state, iso)) {
+    // Entradas cadastradas: o fixo já é certo; variáveis entram com o previsto
+    const temFixo = listaEntradas(state).some((e) => e.tipo === "fixo");
+    const base = rendaDa(state, iso) + (temFixo ? 0 : seed.metas.meta);
+    return { valor: Math.max(0, base - jurosDa(state, iso)), previsao: !temFixo };
+  }
   const salario = Number((state.renda[iso] || {}).salario) || 0;
   const extras = rendaDa(state, iso) - salario; // Lyft, ajudas, recebimentos
   // Sem salário digitado: usa a meta como previsão do salário e soma os extras já registrados

@@ -13,7 +13,11 @@ import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte } from "../core/calendar.js";
 import { money, dayLabel, shortDate } from "../core/format.js";
 import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
-import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem, ajustarSaldo, desfazerAjustes } from "../core/caixa.js";
+import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
+import { saldoAtual, previstoNaConta, conferir } from "../core/saldo.js";
+import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas } from "../core/entradas.js";
+const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
+import { entradasLinhas, bindEntradasHoje } from "./entradasHoje.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
@@ -39,6 +43,8 @@ export function renderHoje(root, ctx) {
   const { cover, ataque } = allocate(week, efetiva.valor);
   const proj = projetar(seed, state, nextPayday());
   const alvo = seed.alvos.map((id) => seed.cartoes.find((c) => c.id === id)).find((c) => c && c.saldo > 0);
+  const ent = usaEntradas(state, iso) ? entradasLinhas(ctx, iso) : { html: "", pendentes: [] };
+  const lyftSolto = usaEntradas(state, iso) ? renda - entradasTotal(ctx, iso) - (Number(r.extras) || 0) - ajuda - receb.valor : 0;
   const extraFeito = (state.movs || []).filter((m) => m.semana === iso && m.extra).reduce((a, m) => a + Number(m.valor), 0);
 
   const atrasados = week.items.filter((i) => i.atrasado && !pagos[i.id]);
@@ -89,22 +95,27 @@ export function renderHoje(root, ctx) {
   // por conta corrente; "Ajustar com o banco" acerta taxas e câmbio
   const cx = caixaDaSemana(state, iso, efetiva.valor, extraFeito);
   const multi = cx.contas.length > 1;
-  const linhaCx = (l) => `<li class="cx-linha">
-      ${multi ? `<div class="cx-top"><span class="name">${esc(l.banco)}</span><b class="${l.disponivel < 0 ? "neg" : ""}">${money(l.disponivel, true)}</b></div>
-        <div class="hint">entra ${money(l.entra, true)} · paguei ${money(l.paguei, true)}${l.ajuste ? ` · taxas e câmbio ${money(l.ajuste, true)}` : ""}</div>`
-        : l.ajuste ? `<div class="hint">taxas e câmbio ${money(l.ajuste, true)}</div>` : ""}
-      ${ctx.ajustarBanco === l.id ? `<form class="inline ajuste-form" data-ajuste="${esc(l.id)}" data-calc="${l.disponivel}" novalidate>
-          ${field({ id: `aj-${l.id}`, label: `Tenho de verdade no ${l.banco}`, prefix: "$", placeholder: "0,00" })}
+  // Cada conta: saldo agora (o mesmo de Minhas contas) e o que ainda vai cair
+  const linhaCx = (l) => {
+    const agora = saldoAtual(state, l);
+    const vai = previstoNaConta(state, l.id).reduce((a, x) => a + x.valor, 0);
+    return `<li class="cx-linha">
+      <div class="cx-top"><span class="name">${esc(l.banco)}</span><b class="${agora < 0 ? "neg" : ""}">${agora == null ? "—" : money(agora, true)}</b></div>
+      <div class="hint">${agora == null ? "confira o saldo uma vez para começar" : "agora na conta"}${vai ? ` · vai cair ${money(vai, true)}` : ""}${l.ajuste ? ` · taxas e câmbio ${money(l.ajuste, true)}` : ""}</div>
+      ${agora != null && agora < 0 ? `<div class="hint neg">fica negativa${vai ? ` até cair o dinheiro` : ""}</div>` : ""}
+      ${ctx.ajustarBanco === l.id ? `<form class="inline ajuste-form" data-ajuste="${esc(l.id)}" novalidate>
+          ${field({ id: `aj-${l.id}`, label: `Quanto o ${l.banco} mostra agora`, prefix: "$", placeholder: "0,00" })}
           <button class="btn primary" type="submit">Salvar</button>
           <button class="btn" type="button" data-ajuste-cancel>Cancelar</button>
         </form>`
-        : `<div class="row-actions"><button class="link" data-ajustar="${esc(l.id)}">Ajustar com o banco</button>${l.ajuste ? `<button class="link danger" data-desajustar="${esc(l.id)}">desfazer ajuste</button>` : ""}</div>`}
+        : `<div class="row-actions"><button class="link" data-ajustar="${esc(l.id)}">Conferir com o banco</button></div>`}
     </li>`;
+  };
   const saldoSemana = stats([
     { label: "Entra", valor: money(cx.total.entra, true) },
     { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste, true) },
     { label: "Disponível", valor: money(cx.total.disponivel, true) },
-  ]) + `<ul class="cx-lista-hoje">${cx.contas.map(linhaCx).join("")}</ul>`;
+  ]) + `<ul class="cx-lista-hoje">${contasCorrentes(state).map((b) => linhaCx({ ...b, ...(cx.contas.find((c) => c.id === b.id) || {}) })).join("")}</ul>`;
 
   // Período fechado: só o resumo do que paguei; o que faltou já está no próximo
   const PER = { semanal: "semana", quinzenal: "quinzena", mensal: "mês" }[getCiclo().tipo] || "período";
@@ -193,9 +204,20 @@ export function renderHoje(root, ctx) {
       
     </div>` : ""}
 
-    ${card({
+    ${usaEntradas(state, iso) ? card({
       title: "Quanto vai entrar",
       body: `<div class="big">${money(renda)}</div>
+        ${ent.html}
+        ${lyftSolto > 0.004 ? `<p class="hint">+ ${money(lyftSolto, true)} de Extra Money · <a href="#extra">ver</a></p>` : ""}
+        ${Number(r.extras) ? `<p class="hint">+ ${money(Number(r.extras), true)} de outras entradas</p>` : ""}
+        ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
+        ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
+        ${levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo })}
+        <a class="link" href="#ajustes" data-abrir-sec="entradas">editar minhas entradas</a>`,
+    }) : card({
+      title: "Quanto vai entrar",
+      body: `<div class="big">${money(renda)}</div>
+        ${!temEntradas(state) ? `<p class="hint"><a href="#ajustes" data-abrir-sec="entradas">Cadastre suas entradas</a> e não precisa digitar toda semana.</p>` : ""}
         <div class="fields">
           ${field({ id: "salario", label: "Salário + extras", value: r.salario, prefix: "$", placeholder: "0,00" })}
           ${lyft.turnos
@@ -232,9 +254,11 @@ export function renderHoje(root, ctx) {
   const lb = root.querySelector("#late-btn");
   if (lb) lb.onclick = () => { ctx.showLate = !ctx.showLate; ctx.rerender(); };
 
+  bindEntradasHoje(root, ctx, iso);
+  root.querySelectorAll("[data-abrir-sec]").forEach((a) => (a.onclick = () => { ctx.openSec = a.dataset.abrirSec; }));
   ["salario", "lyft", "extras"].forEach((id) => {
     const el = root.querySelector(`#${id}`);
-    if (el.readOnly) return;
+    if (!el || el.readOnly) return;
     el.addEventListener("input", (e) => {
       state.renda[iso] = { ...(state.renda[iso] || {}), [id]: e.target.value };
       persist();
@@ -250,15 +274,13 @@ export function renderHoje(root, ctx) {
   }));
   root.querySelectorAll("[data-ajustar]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = b.dataset.ajustar; ctx.rerender({ focus: `aj-${b.dataset.ajustar}` }); }));
   root.querySelectorAll("[data-ajuste-cancel]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = null; ctx.rerender(); }));
-  root.querySelectorAll("[data-desajustar]").forEach((b) => (b.onclick = () => {
-    if (!b.dataset.confirma) { b.dataset.confirma = "1"; b.textContent = "confirmar"; return; }
-    desfazerAjustes(state, iso, b.dataset.desajustar); persist(); ctx.rerender();
-  }));
   root.querySelectorAll("[data-ajuste]").forEach((f) => f.addEventListener("submit", (e) => {
     e.preventDefault();
     const raw = f.querySelector("input").value.replace(",", ".").trim();
     if (raw === "" || !Number.isFinite(Number(raw))) return;
-    ajustarSaldo(state, iso, f.dataset.ajuste, Number(f.dataset.calc), Number(raw));
+    const b = contasCorrentes(state).find((x) => x.id === f.dataset.ajuste);
+    const dif = conferir(state, b, Number(raw), iso);
+    toast(Math.abs(dif) > 0.004 ? `${money(Math.abs(dif), true)} de ${dif > 0 ? "taxas e câmbio" : "a mais"} ✓` : "Bateu ✓");
     ctx.ajustarBanco = null; persist(); ctx.rerender();
   }));
 
@@ -314,7 +336,7 @@ export function renderHoje(root, ctx) {
       const quitado = sheet.querySelector('input[name="pg-tipo"]:checked').value === "tudo";
       const bancoEl = sheet.querySelector("#pg-banco");
       const banco = bancoEl ? bancoEl.value : contaPrincipal(state);
-      const reg = { valor, juros, data, quitado, banco };
+      const reg = { valor, juros, data, quitado, banco, ts: Date.now(), nome: item.nome };
       const origEl = sheet.querySelector("#pg-orig");
       if (origEl && Number(origEl.value) > 0) {
         // Cotação real deste pagamento (com taxas) vira a cotação das próximas contas

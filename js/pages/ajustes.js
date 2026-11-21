@@ -7,6 +7,7 @@
 import { syncNote, sairDaConta } from "../core/sync.js";
 import { MOEDAS, moedaBase, emOutraMoeda, converter, fmtMoeda } from "../core/cambio.js";
 import { cambioHtml, bindCambio } from "./cambio.js";
+import { entradasAjustesHtml, bindEntradasAjustes } from "./entradasAjustes.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
 import { conexoesHtml, bindConexoes } from "./conexoes.js";
@@ -361,7 +362,7 @@ export function renderAjustes(root, ctx) {
       <div class="sec-body">
         ${b.id === "ciclo" ? cicloHtml : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
       </div>
-    </details>`).join("");
+    </details>${b.id === "ciclo" ? entradasAjustesHtml(ctx) : ""}`).join("");
 
 
   root.innerHTML = `
@@ -631,6 +632,7 @@ export function renderAjustes(root, ctx) {
   bindDados(root, ctx);
   bindConexoes(root, ctx);
   bindCambio(root, ctx);
+  bindEntradasAjustes(root, ctx);
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

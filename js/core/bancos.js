@@ -4,18 +4,13 @@
 // O saldo da conta principal (id "citibank", nome histórico) vem de state.saldoConta.
 // Os números ficam só nos seus dados (privados), nunca no código.
 // =========================================================
-import { saldoContaAtual, saldoDoBanco, CONTA } from "./gastos.js";
+import { saldoAtual, conferir } from "./saldo.js";
 
 export const TIPOS = [{ id: "checking", label: "Checking" }, { id: "savings", label: "Savings" }];
 export const final4 = (n) => String(n || "").slice(-4);
 export const mascara = (n) => (n ? `•••• ${final4(n)}` : "—");
 
-export function saldoBanco(state, b) {
-  if (b.id === CONTA) return saldoContaAtual(state);
-  return saldoDoBanco(state, b.id, b.saldo, b.saldoEm);
-}
-
-export function salvarSaldo(state, b, valor) {
-  if (b.id === CONTA) state.saldoConta = { banco: b.banco, valor, em: Date.now() };
-  else state.bancos = state.bancos.map((x) => (x.id === b.id ? { ...x, saldo: valor, saldoEm: Date.now() } : x));
-}
+// Saldo calculado sozinho (último conferido + o que entrou e saiu depois)
+export const saldoBanco = (state, b) => saldoAtual(state, b);
+// Atualizar saldo = conferir com o banco (a diferença vira taxas e câmbio)
+export const salvarSaldo = (state, b, valor) => conferir(state, b, valor);
