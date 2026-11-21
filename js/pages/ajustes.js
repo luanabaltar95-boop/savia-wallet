@@ -126,7 +126,7 @@ const BLOCOS = [
   { id: "contas", n: 2, titulo: "Minhas contas" },
   { id: "cartoes", n: 3, titulo: "Cartões" },
   { id: "dividas", n: 4, titulo: "Dívidas" },
-  { id: "financiamentos", n: 5, titulo: "Financiamentos e parcelamentos" },
+  { id: "financiamentos", n: 5, titulo: "Parcelamentos" },
 ];
 
 const novoId = () => "u-" + Date.now().toString(36);
@@ -359,13 +359,14 @@ export function renderAjustes(root, ctx) {
     </form>`;
 
   // Blocos de módulos desligados não aparecem (numeração segue a ordem)
-  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i + 1 })).map((b) => `
+  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i === 0 ? 1 : i + 2 })).map((b) => `
     <details class="card sec" data-sec="${b.id}" ${ctx.openSec === b.id ? "open" : ""}>
       <summary class="sec-head"><h2><span class="passo">${b.n}</span>${b.titulo}</h2><span class="total">${resumoBloco(b)}</span></summary>
       <div class="sec-body">
         ${b.id === "ciclo" ? cicloHtml : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
       </div>
-    </details>${b.id === "ciclo" ? entradasAjustesHtml(ctx) : ""}`).join("");
+    </details>${b.id === "ciclo" ? entradasAjustesHtml(ctx, 2) : ""}`).join("");
+  const grupo = (titulo, html) => (html.trim() ? `<section class="grupo"><h3 class="grupo-t">${titulo}</h3><div class="grupo-card">${html}</div></section>` : "");
 
 
   root.innerHTML = `
@@ -375,15 +376,11 @@ export function renderAjustes(root, ctx) {
       
     </header>
 
-    ${blocos}
+    ${grupo("Meu dinheiro", blocos)}
 
-    ${meuMenuHtml(ctx)}
+    ${grupo("Meu app", `${meuMenuHtml(ctx)}${ativo(state, "moedas") ? cambioHtml(ctx) : ""}${ativo(state, "dividir") ? conexoesHtml(ctx) : ""}`)}
 
-    ${ativo(state, "moedas") ? cambioHtml(ctx) : ""}
-
-    ${ativo(state, "dividir") ? conexoesHtml(ctx) : ""}
-
-    <details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
+    ${grupo("Minha conta", `<details class="card sec" data-sec="perfil" ${ctx.openSec === "perfil" ? "open" : ""}>
       <summary class="sec-head"><h2>Meu perfil</h2><span class="total">@${esc(ctx.usuario || "")}</span></summary>
       <form class="sec-body" id="form-perfil" novalidate autocomplete="off">
         <div class="fields stack">
@@ -395,7 +392,7 @@ export function renderAjustes(root, ctx) {
       </form>
     </details>
 
-    ${dadosHtml(ctx)}
+    ${dadosHtml(ctx)}`)}
 
     <button class="btn danger block" id="sair">Sair</button>
 

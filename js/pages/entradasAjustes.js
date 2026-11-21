@@ -13,7 +13,7 @@ import { field, select, segmented, chip, esc, toast } from "../components/ui.js"
 const novoId = () => "en-" + Date.now().toString(36);
 const DIAS = DIAS_SEMANA.map((d, i) => ({ id: String(i), label: d }));
 
-export function entradasAjustesHtml(ctx) {
+export function entradasAjustesHtml(ctx, n) {
   const { state } = ctx;
   const contas = contasCorrentes(state);
   const nomeConta = (id) => (contas.find((b) => b.id === id) || contas[0]).banco;
@@ -52,7 +52,7 @@ export function entradasAjustesHtml(ctx) {
 
   const l = lista(state);
   return `<details class="card sec" data-sec="entradas" ${ctx.openSec === "entradas" ? "open" : ""}>
-    <summary class="sec-head"><h2>Minhas entradas</h2><span class="total">${l.length}</span></summary>
+    <summary class="sec-head"><h2>${n ? `<span class="passo">${n}</span>` : ""}Minhas entradas</h2><span class="total">${l.length}</span></summary>
     <div class="sec-body">
       ${l.length ? `<ul class="shares">${l.map(linha).join("")}</ul>` : `<p class="hint">Cadastre o que entra (salário e extras). Toda semana aparece sozinho na Hoje.</p>`}
       ${ed === "nova" ? form({ tipo: ctx.entTipo || "fixo", dia: String(getCiclo().diaSemana ?? 5), conta: contas[0].id }) : `<button class="btn primary add-btn" id="ec-nova">+ Adicionar</button>`}
