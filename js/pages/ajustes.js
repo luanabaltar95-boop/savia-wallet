@@ -75,6 +75,7 @@ function linhaConta(src, r, i, state) {
       <div class="fields stack">${campos}</div>
       <div class="save-bar">
         <button class="btn primary" type="submit">Salvar</button>
+        <button class="btn" type="button" data-fechar-row>Cancelar</button>
         <span class="save-msg" aria-live="polite"></span>
         <button class="link danger-link" type="button" data-rmconta="${src}" data-i="${i}">remover</button>
       </div>
@@ -285,6 +286,7 @@ function linha(sec, r, i, state) {
       <div class="fields stack">${campos}</div>
       <div class="save-bar">
         <button class="btn primary" type="submit">Salvar</button>
+        <button class="btn" type="button" data-fechar-row>Cancelar</button>
         <span class="save-msg" aria-live="polite"></span>
         ${sec.fixo ? "" : `<button class="link danger-link" type="button" data-rm="${sec.chave}" data-i="${i}">remover</button>`}
       </div>
@@ -657,6 +659,19 @@ export function renderAjustes(root, ctx) {
     ctx.openSec = "contas";
     salvar();
   });
+
+  // Editando um item: só ele fica aberto; Cancelar fecha sem salvar
+  root.querySelectorAll("details.row-edit").forEach((d) => d.addEventListener("toggle", () => {
+    if (!d.open) return;
+    root.querySelectorAll("details.row-edit[open]").forEach((o) => { if (o !== d) o.open = false; });
+  }));
+  root.querySelectorAll("[data-fechar-row]").forEach((b) => (b.onclick = () => {
+    const d = b.closest("details.row-edit");
+    const f = d.querySelector("form");
+    if (f) f.reset();
+    d.open = false;
+    ctx.openRow = null;
+  }));
 
   // Mantém aberto o item que estava sendo editado
   if (ctx.openRow) {
