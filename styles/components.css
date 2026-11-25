@@ -620,3 +620,4 @@ details.cats .sub-head .total { margin-left: auto; }
 /* Editando um item: some o "+ Adicionar" (e o de categorias) até salvar ou cancelar */
 .sec-body:has(details.row-edit[open]) .add-btn,
 .sec-body:has(details.row-edit[open]) #add-cat { display: none; }
+.ent-lista + .ent-lista { margin-top: calc(-1 * var(--s3)); border-top: 1px solid var(--line); }

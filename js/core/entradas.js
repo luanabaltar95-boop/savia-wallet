@@ -71,6 +71,20 @@ export const totalEntradas = (l) => r2(l.reduce((a, e) => a + e.valor, 0));
 // Variáveis ligadas a calculadoras já incluem o Extra Money delas
 export const calcsUsadas = (state) => lista(state).filter((e) => e.tipo === "variavel" && e.calc).map((e) => e.calc);
 
+// ---- Entradas avulsas da semana (acontecem uma vez; lanço na Hoje) ----
+//   state.renda[iso].avulsas: [{ id, nome, valor, conta, data, ts }]
+export const avulsas = (state, iso) => ((state.renda[iso] || {}).avulsas || []);
+export const totalAvulsas = (state, iso) => r2(avulsas(state, iso).reduce((a, x) => a + n(x.valor), 0));
+export function addAvulsa(state, iso, { nome, valor, conta, data }) {
+  const r = state.renda[iso] || {};
+  const ts = data ? fromISO(data).getTime() + 12 * 3600 * 1000 : Date.now();
+  state.renda[iso] = { ...r, avulsas: [...(r.avulsas || []), { id: "av-" + Date.now().toString(36), nome: nome || "Outra entrada", valor: n(valor), conta, data, ts }] };
+}
+export function rmAvulsa(state, iso, id) {
+  const r = state.renda[iso] || {};
+  state.renda[iso] = { ...r, avulsas: (r.avulsas || []).filter((x) => x.id !== id) };
+}
+
 // ---- Ações da semana ----
 function setReg(state, iso, id, campos) {
   const r = state.renda[iso] || {};

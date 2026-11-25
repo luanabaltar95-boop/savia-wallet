@@ -10,7 +10,7 @@ import { simplesDaSemana, simplesLiquido } from "./extra.js";
 import { ajudaDa } from "./juntas.js";
 import { recebidoValor } from "./receber.js";
 import { parte } from "./config.js";
-import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas } from "./entradas.js";
+import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas, totalAvulsas } from "./entradas.js";
 import { liquidoFonte } from "./extra.js";
 
 // O plano começa em seed.inicio (primeiro pagamento depois de montar a carteira)
@@ -55,9 +55,9 @@ export function rendaDa(state, iso) {
   const r = state.renda[iso] || {};
   if (usaEntradas(state, iso)) {
     const ent = totalEntradas(entradasDaSemana({ fontes: parte(state, "fontes") }, state, iso));
-    return ent + extraSolto(state, iso) + (Number(r.extras) || 0) + ajudaDa(state, iso) + recebidoValor(state, iso);
+    return ent + extraSolto(state, iso) + (Number(r.extras) || 0) + totalAvulsas(state, iso) + ajudaDa(state, iso) + recebidoValor(state, iso);
   }
-  return (Number(r.salario) || 0) + (Number(r.extras) || 0) + lyftDa(state, iso).valor + ajudaDa(state, iso) + recebidoValor(state, iso);
+  return (Number(r.salario) || 0) + (Number(r.extras) || 0) + totalAvulsas(state, iso) + lyftDa(state, iso).valor + ajudaDa(state, iso) + recebidoValor(state, iso);
 }
 
 // Renda usada no plano: a digitada; se ainda não tem, a meta semanal (previsão)

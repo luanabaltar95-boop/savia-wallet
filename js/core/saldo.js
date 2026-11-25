@@ -40,6 +40,10 @@ export function movimentos(state, contaId, desde = 0, agora = Date.now()) {
     entradasDaSemana(seed, state, iso, agora).filter((e) => e.confirmado).forEach((e) =>
       e.partes.filter((x) => daConta(x.conta)).forEach((x) => add(e.ts, x.valor, e.nome, "entrada", { iso, entrada: e.id })));
   }
+  // Entradas avulsas lançadas na Hoje
+  Object.entries(state.renda || {}).forEach(([iso, r]) => ((r && r.avulsas) || []).forEach((a) => {
+    if (daConta(a.conta)) add(a.ts || tsData(a.data), n(a.valor), a.nome || "Outra entrada", "entrada", { iso, avulsa: a.id });
+  }));
   // Pagamentos marcados na Hoje
   Object.entries(state.pagos || {}).forEach(([iso, semana]) => Object.entries(semana || {}).forEach(([id, pg]) => {
     if (!pg || typeof pg !== "object" || !daConta(pg.banco)) return;

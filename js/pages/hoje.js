@@ -15,9 +15,9 @@ import { money, dayLabel, shortDate } from "../core/format.js";
 import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
 import { saldoAtual, previstoNaConta, conferir } from "../core/saldo.js";
-import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas } from "../core/entradas.js";
+import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas, totalAvulsas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
-import { entradasLinhas, bindEntradasHoje } from "./entradasHoje.js";
+import { entradasLinhas, bindEntradasHoje, avulsasHtml } from "./entradasHoje.js";
 import { ativo, nomesMetas } from "../core/modulos.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
@@ -46,7 +46,7 @@ export function renderHoje(root, ctx) {
   const proj = projetar(seed, state, nextPayday());
   const alvo = seed.alvos.map((id) => seed.cartoes.find((c) => c.id === id)).find((c) => c && c.saldo > 0);
   const ent = usaEntradas(state, iso) ? entradasLinhas(ctx, iso) : { html: "", pendentes: [] };
-  const lyftSolto = usaEntradas(state, iso) ? renda - entradasTotal(ctx, iso) - (Number(r.extras) || 0) - ajuda - receb.valor : 0;
+  const lyftSolto = usaEntradas(state, iso) ? renda - entradasTotal(ctx, iso) - totalAvulsas(state, iso) - (Number(r.extras) || 0) - ajuda - receb.valor : 0;
   const extraFeito = (state.movs || []).filter((m) => m.semana === iso && m.extra).reduce((a, m) => a + Number(m.valor), 0);
 
   const atrasados = week.items.filter((i) => i.atrasado && !pagos[i.id]);
@@ -210,6 +210,7 @@ export function renderHoje(root, ctx) {
       title: "Quanto vai entrar",
       body: `<div class="big">${money(renda)}</div>
         ${ent.html}
+        ${avulsasHtml(ctx, iso)}
         ${lyftSolto > 0.004 ? `<p class="hint">+ ${money(lyftSolto, true)} de Extra Money · <a href="#extra">ver</a></p>` : ""}
         ${Number(r.extras) ? `<p class="hint">+ ${money(Number(r.extras), true)} de outras entradas</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
@@ -225,8 +226,9 @@ export function renderHoje(root, ctx) {
           ${lyft.turnos
             ? field({ id: "lyft", label: "Extra money", value: lyft.valor.toFixed(2), readonly: true, prefix: "$", note: `${lyft.turnos} registro(s) · <a href="#extra">ver</a>` })
             : field({ id: "lyft", label: "Extra money", value: r.lyft, prefix: "$", placeholder: "0,00", note: '<a href="#extra">registrar</a>' })}
-          ${field({ id: "extras", label: "Outras entradas", value: r.extras, prefix: "$", placeholder: "0,00" })}
+          ${Number(r.extras) ? field({ id: "extras", label: "Outras entradas", value: r.extras, prefix: "$", placeholder: "0,00" }) : ""}
         </div>
+        ${avulsasHtml(ctx, iso)}
         ${contasCorrentes(state).length > 1 ? `<div class="fields">
           ${contasCorrentes(state).filter((b) => b.id !== contaPrincipal(state)).map((b) => field({ id: `pb-${b.id}`, label: `Do salário, caiu no ${b.banco}`, value: (r.porBanco || {})[b.id], prefix: "$", placeholder: "0,00", attrs: `data-porbanco="${esc(b.id)}"` })).join("")}
         </div><p class="hint">O resto cai no ${esc(contasCorrentes(state)[0].banco)}.</p>` : ""}

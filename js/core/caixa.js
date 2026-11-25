@@ -10,7 +10,7 @@
 import { bancosDe, CONTA } from "./gastos.js";
 import { jurosDa } from "./plan.js";
 import { parte } from "./config.js";
-import { usaEntradas, entradasDaSemana } from "./entradas.js";
+import { usaEntradas, entradasDaSemana, avulsas } from "./entradas.js";
 
 const n = (v) => Number(v) || 0;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -40,7 +40,9 @@ export function caixaDaSemana(state, iso, efetivaValor, extraFeito = 0) {
     entradasDaSemana({ fontes: parte(state, "fontes") }, state, iso).forEach((e) => e.partes.forEach((p) => {
       if (linha[p.conta] && p.conta !== pri) { linha[p.conta].entra += p.valor; fora += p.valor; }
     }));
-  } else {
+  }
+  avulsas(state, iso).forEach((a) => { if (linha[a.conta] && a.conta !== pri) { linha[a.conta].entra += n(a.valor); fora += n(a.valor); } });
+  if (!usaEntradas(state, iso)) {
     const split = (state.renda[iso] || {}).porBanco || {};
     Object.entries(split).forEach(([id, v]) => { if (linha[id] && id !== pri) { linha[id].entra += n(v); fora += n(v); } });
   }
