@@ -621,3 +621,7 @@ details.cats .sub-head .total { margin-left: auto; }
 .sec-body:has(details.row-edit[open]) .add-btn,
 .sec-body:has(details.row-edit[open]) #add-cat { display: none; }
 .ent-lista + .ent-lista { margin-top: calc(-1 * var(--s3)); border-top: 1px solid var(--line); }
+
+/* Plano de pagamento: número da ordem */
+.plano .name .num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; margin-right: 8px; border-radius: 11px; background: var(--bg-2, #efe9df); color: var(--ink-2); font-size: 12px; font-weight: 700; vertical-align: 2px; font-variant-numeric: tabular-nums; }
+.plano .mission.done .name .num { background: var(--green-soft); color: var(--green); }

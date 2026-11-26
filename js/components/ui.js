@@ -124,7 +124,7 @@ export function stats(items) {
 const VERBO ={ pagar: "pagar", guardar: "guardar", usar: "para usar" };
 
 // Linha da lista de sexta: o que fazer com cada valor
-export function payRow(item, { valorAgora, pago, info, destino }) {
+export function payRow(item, { valorAgora, pago, info, destino, n }) {
   const tags = [];
   if (destino) tags.push(chip(`→ ${destino}`, "ok"));
   if (info && info.valor != null) tags.push(chip(`pago ${money(info.valor, true)}${Number(info.juros) ? ` + ${money(Number(info.juros), true)} juros` : ""}`, "ok"));
@@ -137,7 +137,7 @@ export function payRow(item, { valorAgora, pago, info, destino }) {
   return `<li class="mission ${pago ? "done" : ""}">
     <input class="check" type="checkbox" data-pago="${esc(item.id)}" ${pago ? "checked" : ""} aria-label="Marcar ${esc(item.nome)} como feito">
     <div>
-      <div class="name">${esc(item.nome)}</div>
+      <div class="name">${n ? `<span class="num">${n}</span>` : ""}${esc(item.nome)}</div>
       ${item.detalhe ? `<div class="hint">${esc(item.detalhe)}</div>` : ""}
       <div class="meta">${tags.join("")}</div>
     </div>

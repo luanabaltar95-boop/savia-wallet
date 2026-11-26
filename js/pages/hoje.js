@@ -4,15 +4,15 @@ import { syncNote } from "../core/sync.js";
 // Sexta: a carteira diz o que pagar/guardar, em ordem,
 // e o que fica para a próxima semana.
 // =========================================================
-import { buildWeek, allocate, rendaDa, rendaEfetiva, projetar, lyftDa, GROUPS, restante, pagamento } from "../core/plan.js";
+import { buildWeek, allocate, rendaDa, rendaEfetiva, lyftDa, restante, pagamento } from "../core/plan.js";
 import { ajudaDa } from "../core/juntas.js";
 import { carteiraVazia } from "./home.js";
 import { poupanca, vaiParaPoupanca } from "../core/destino.js";
 import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
-import { money, dayLabel, shortDate } from "../core/format.js";
-import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
+import { money, shortDate } from "../core/format.js";
+import { card, field, select, levels, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
 import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas, totalAvulsas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
@@ -41,9 +41,7 @@ export function renderHoje(root, ctx) {
   const receb = recebidoDa(seed, state, iso);
   const pagos = state.pagos[iso] || {};
   const efetiva = rendaEfetiva(seed, state, iso);
-  const { cover, ataque } = allocate(week, efetiva.valor);
-  const proj = projetar(seed, state, nextPayday());
-  const alvo = seed.alvos.map((id) => seed.cartoes.find((c) => c.id === id)).find((c) => c && c.saldo > 0);
+  const { cover } = allocate(week, efetiva.valor);
   const ent = usaEntradas(state, iso) ? entradasLinhas(ctx, iso) : { html: "", pendentes: [] };
   const lyftSolto = usaEntradas(state, iso) ? renda - entradasTotal(ctx, iso) - totalAvulsas(state, iso) - (Number(r.extras) || 0) - ajuda - receb.valor : 0;
   const extraFeito = (state.movs || []).filter((m) => m.semana === iso && m.extra).reduce((a, m) => a + Number(m.valor), 0);
@@ -78,20 +76,8 @@ export function renderHoje(root, ctx) {
       </form>
     </div>` : "";
 
-  // Reserva de longo prazo vai para a poupança; o resto fica na corrente
+  // Reserva de longo prazo vai para a poupança (aparece no item)
   const pp = poupanca(state);
-  const longo = fazer.filter((i) => vaiParaPoupanca(i, payday));
-  const valorAgora = (i) => { const info = pagamento(state, iso, i.id); return info && info.valor != null ? info.valor : cover[i.id] || 0; };
-  const totalPoup = longo.reduce((a, i) => a + valorAgora(i), 0);
-  const totalCorrente = fazer.filter((i) => !vaiParaPoupanca(i, payday)).reduce((a, i) => a + valorAgora(i), 0);
-  const ondeFica = totalPoup > 0.005 ? card({
-    title: "Onde fica o dinheiro",
-    body: `<ul class="cat-list">
-      <li><span>Conta corrente (contas e o que vence em até 2 semanas)</span><b>${money(totalCorrente, true)}</b></li>
-      <li><span>Transferir para o ${esc(pp.banco)} (reservas de longo prazo)</span><b>${money(totalPoup, true)}</b></li>
-    </ul>`,
-  }) : "";
-
   // Disponível: o que entra menos o que já paguei nesta semana (com juros e extra na dívida)
   // por conta corrente; "Ajustar com o banco" acerta taxas e câmbio
   const cx = caixaDaSemana(state, iso, efetiva.valor, extraFeito);
@@ -134,49 +120,13 @@ export function renderHoje(root, ctx) {
   }
 
   const listaSexta = card({
-    title: getCiclo().tipo === "semanal" ? `${[0, 6].includes(Number(getCiclo().diaSemana ?? 5)) ? "No" : "Na"} ${DIAS_SEMANA[Number(getCiclo().diaSemana ?? 5)].toLowerCase()}, nesta ordem` : "No dia do pagamento, nesta ordem",
-    hint: efetiva.previsao ? "" : "De cima para baixo — marco cada uma quando concluir.",
-    body: `<div class="disp">${saldoSemana}</div><ul class="missions">${fazer.map((i) => {
+    title: "Plano de pagamento",
+    hint: "Pago nesta ordem e marco cada uma.",
+    body: `<div class="disp">${saldoSemana}</div><ul class="missions plano">${fazer.map((i, k) => {
       const info = pagamento(state, iso, i.id);
-      return payRow(i, { valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: vaiParaPoupanca(i, payday) ? pp.banco : "" });
+      return payRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: vaiParaPoupanca(i, payday) ? pp.banco : "" });
     }).join("")}</ul>`,
   });
-
-  const ficaHtml = fica.length
-    ? card({
-        title: "Fica para a próxima semana",
-        total: money(totalFica),
-        body: `<ul class="missions">${fica.map((i) => payRow(i, { valorAgora: falta(i), pago: false, destino: vaiParaPoupanca(i, payday) ? pp.banco : "" })).join("")}</ul>`,
-      })
-    : "";
-
-  const attackBody = ataque > 0 && alvo
-    ? `<div class="big">${money(ataque)}</div><p>Sobra para a dívida. Próximo alvo: <b>${esc(alvo.nome)}</b> (saldo ${money(alvo.saldo)}).</p>
-       ${extraFeito ? `<p>Já registrado nesta semana: <b>${money(extraFeito, true)}</b>.</p>` : ""}
-       <form class="inline" id="extra">
-         <label class="field" for="extra-valor"><span class="lbl">Quanto paguei a mais</span>
-           <input id="extra-valor" type="number" inputmode="decimal" min="0" step="any" value="${Math.max(0, Math.round((ataque - extraFeito) * 100) / 100) || ""}"></label>
-         <button class="btn light" type="submit">Registrar pagamento</button>
-       </form>`
-    : `<p>Ataque à dívida: ${proj.ataqueDesde ? `<b>${dayLabel(proj.ataqueDesde)}</b>` : "quando sobrar"}</p>`;
-
-  const previsao = card({
-    title: "Previsão",
-    hint: `Meta: ${money(seed.metas.meta)}`,
-    body: `<ul class="missions">
-      <li class="mission"><span></span><div class="name">Tudo em dia (sem atrasos)</div><div class="value">${proj.emDia ? dayLabel(proj.emDia) : "—"}</div></li>
-      <li class="mission"><span></span><div class="name">Começa o ataque à dívida</div><div class="value">${proj.ataqueDesde ? dayLabel(proj.ataqueDesde) : "—"}</div></li>
-    </ul>
-    ${proj.alertas.length ? `<div class="banner"><b>Não fecha no prazo:</b> ${proj.alertas.map((a) => `${esc(a.nome)} (${shortDate(a.vence)})`).join(" · ")}</div>` : ""}`,
-  });
-
-  const detalhe = GROUPS.map((g) => {
-    const its = week.items.filter((i) => i.grupo === g.id);
-    if (!its.length) return "";
-    const total = its.reduce((a, b) => a + b.valor, 0);
-    const list = its.map((i) => mission(i, { coberto: cover[i.id] || 0, pago: !!pagos[i.id], mostrarCobertura: true })).join("");
-    return card({ title: g.label, total: money(total), hint: g.hint, body: `<ul class="missions">${list}</ul>` });
-  }).join("");
 
   root.innerHTML = `
     ${weekNav(payday, "Pagamentos", null, atrasados.length
@@ -221,17 +171,8 @@ export function renderHoje(root, ctx) {
     })}
 
     ${listaSexta}
-    ${ondeFica}
-    ${ficaHtml}
-    ${ativo(state, "dividas") ? card({ title: "Para a dívida", cls: "attack", body: attackBody }) : ""}
-    ${previsao}
 
     <button class="btn primary block" id="fechar-semana">Fechar ${PER}${totalFica ? ` · ${money(totalFica)} vai para ${PER === "mês" ? "o próximo" : "a próxima"}` : ""}</button>
-
-    <details class="more">
-      <summary>Ver tudo da semana por categoria</summary>
-      <div class="more-body">${detalhe}</div>
-    </details>
 
     ${syncNote(ctx)}
     ${sheetHtml}
@@ -330,13 +271,4 @@ export function renderHoje(root, ctx) {
     sheet.querySelector("#pg-valor").focus();
   }
 
-  const extra = root.querySelector("#extra");
-  if (extra) extra.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const v = Number(root.querySelector("#extra-valor").value);
-    if (!(v > 0)) return;
-    addMov(state, { id: `ex:${Date.now().toString(36)}`, cartao: alvo.id, tipo: "pagamento", valor: v, semana: iso, extra: true, desc: "Pagamento extra", data: toISO(new Date()) });
-    persist();
-    ctx.rerender();
-  });
 }
