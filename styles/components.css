@@ -625,3 +625,14 @@ details.cats .sub-head .total { margin-left: auto; }
 /* Plano de pagamento: número da ordem */
 .plano .name .num { display: inline-grid; place-items: center; min-width: 22px; height: 22px; margin-right: 8px; border-radius: 11px; background: var(--bg-2, #efe9df); color: var(--ink-2); font-size: 12px; font-weight: 700; vertical-align: 2px; font-variant-numeric: tabular-nums; }
 .plano .mission.done .name .num { background: var(--green-soft); color: var(--green); }
+
+/* Menu "⋯" com ações secundárias */
+.mais { position: relative; margin-left: auto; }
+.mais > summary { list-style: none; cursor: pointer; width: 36px; height: 32px; display: grid; place-items: center; border-radius: 10px; font-size: 22px; line-height: 1; color: var(--ink-2); }
+.mais > summary::-webkit-details-marker { display: none; }
+.mais[open] > summary, .mais > summary:hover { background: var(--bg-2, #efe9df); }
+.mais-pop { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 210px; display: grid; padding: 6px; border-radius: 14px; background: var(--surface); box-shadow: 0 10px 30px rgba(0,0,0,.16); }
+.mais-pop button { all: unset; cursor: pointer; padding: 10px 12px; border-radius: 10px; font-weight: 600; color: var(--ink); }
+.mais-pop button:hover, .mais-pop button:focus-visible { background: var(--bg-2, #efe9df); }
+.mais-pop button.danger { color: var(--red, #b3402f); }
+.ent .row-actions { justify-content: flex-start; }

@@ -80,6 +80,11 @@ export function addAvulsa(state, iso, { nome, valor, conta, data }) {
   const ts = data ? fromISO(data).getTime() + 12 * 3600 * 1000 : Date.now();
   state.renda[iso] = { ...r, avulsas: [...(r.avulsas || []), { id: "av-" + Date.now().toString(36), nome: nome || "Outra entrada", valor: n(valor), conta, data, ts }] };
 }
+export function editAvulsa(state, iso, id, { nome, valor, conta, data }) {
+  const r = state.renda[iso] || {};
+  const ts = data ? fromISO(data).getTime() + 12 * 3600 * 1000 : Date.now();
+  state.renda[iso] = { ...r, avulsas: (r.avulsas || []).map((x) => (x.id === id ? { ...x, nome: nome || x.nome, valor: n(valor), conta, data, ts } : x)) };
+}
 export function rmAvulsa(state, iso, id) {
   const r = state.renda[iso] || {};
   state.renda[iso] = { ...r, avulsas: (r.avulsas || []).filter((x) => x.id !== id) };
