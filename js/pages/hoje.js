@@ -14,7 +14,6 @@ import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } 
 import { money, dayLabel, shortDate } from "../core/format.js";
 import { card, field, select, levels, mission, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
-import { saldoAtual, previstoNaConta, conferir } from "../core/saldo.js";
 import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas, totalAvulsas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
 import { entradasLinhas, bindEntradasHoje, avulsasHtml } from "./entradasHoje.js";
@@ -96,28 +95,12 @@ export function renderHoje(root, ctx) {
   // Disponível: o que entra menos o que já paguei nesta semana (com juros e extra na dívida)
   // por conta corrente; "Ajustar com o banco" acerta taxas e câmbio
   const cx = caixaDaSemana(state, iso, efetiva.valor, extraFeito);
-  const multi = cx.contas.length > 1;
-  // Cada conta: saldo agora (o mesmo de Minhas contas) e o que ainda vai cair
-  const linhaCx = (l) => {
-    const agora = saldoAtual(state, l);
-    const vai = previstoNaConta(state, l.id).reduce((a, x) => a + x.valor, 0);
-    return `<li class="cx-linha">
-      <div class="cx-top"><span class="name">${esc(l.banco)}</span><b class="${agora < 0 ? "neg" : ""}">${agora == null ? "—" : money(agora, true)}</b></div>
-      <div class="hint">${agora == null ? "confira o saldo uma vez para começar" : "agora na conta"}${vai ? ` · vai cair ${money(vai, true)}` : ""}${l.ajuste ? ` · taxas e câmbio ${money(l.ajuste, true)}` : ""}</div>
-      ${agora != null && agora < 0 ? `<div class="hint neg">fica negativa${vai ? ` até cair o dinheiro` : ""}</div>` : ""}
-      ${ctx.ajustarBanco === l.id ? `<form class="inline ajuste-form" data-ajuste="${esc(l.id)}" novalidate>
-          ${field({ id: `aj-${l.id}`, label: `Quanto o ${l.banco} mostra agora`, prefix: "$", placeholder: "0,00" })}
-          <button class="btn primary" type="submit">Salvar</button>
-          <button class="btn" type="button" data-ajuste-cancel>Cancelar</button>
-        </form>`
-        : `<div class="row-actions"><button class="link" data-ajustar="${esc(l.id)}">Conferir com o banco</button></div>`}
-    </li>`;
-  };
+
   const saldoSemana = stats([
     { label: "Entra", valor: money(cx.total.entra, true) },
     { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste, true) },
     { label: "Disponível", valor: money(cx.total.disponivel, true) },
-  ]) + `<ul class="cx-lista-hoje">${contasCorrentes(state).map((b) => linhaCx({ ...b, ...(cx.contas.find((c) => c.id === b.id) || {}) })).join("")}</ul>`;
+  ]);
 
   // Período fechado: só o resumo do que paguei; o que faltou já está no próximo
   const PER = { semanal: "semana", quinzenal: "quinzena", mensal: "mês" }[getCiclo().tipo] || "período";
@@ -276,17 +259,7 @@ export function renderHoje(root, ctx) {
     persist();
     ctx.rerender({ focus: el.id });
   }));
-  root.querySelectorAll("[data-ajustar]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = b.dataset.ajustar; ctx.rerender({ focus: `aj-${b.dataset.ajustar}` }); }));
-  root.querySelectorAll("[data-ajuste-cancel]").forEach((b) => (b.onclick = () => { ctx.ajustarBanco = null; ctx.rerender(); }));
-  root.querySelectorAll("[data-ajuste]").forEach((f) => f.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const raw = f.querySelector("input").value.replace(",", ".").trim();
-    if (raw === "" || !Number.isFinite(Number(raw))) return;
-    const b = contasCorrentes(state).find((x) => x.id === f.dataset.ajuste);
-    const dif = conferir(state, b, Number(raw), iso);
-    toast(Math.abs(dif) > 0.004 ? `${money(Math.abs(dif), true)} de ${dif > 0 ? "taxas e câmbio" : "a mais"} ✓` : "Bateu ✓");
-    ctx.ajustarBanco = null; persist(); ctx.rerender();
-  }));
+
 
   // Fechar semana: o que faltou já vai para a próxima; abro a próxima semana
   const fs = root.querySelector("#fechar-semana");
