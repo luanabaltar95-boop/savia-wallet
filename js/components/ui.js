@@ -131,6 +131,7 @@ export function payRow(item, { valorAgora, pago, info, destino, n }) {
   if (item.atrasado) tags.push(chip("atrasado", "miss"));
   tags.push(chip(item.vence && item.acao === "pagar" ? `pagar até ${shortDate(item.vence)}` : VERBO[item.acao] || "guardar", item.acao === "pagar" ? "part" : "plan"));
   if (item.veioDe) tags.push(chip("veio do pagamento anterior"));
+  if (item.semParcial) tags.push(chip("só valor inteiro"));
   if (item.protegido) tags.push(chip("protegido", "plan"));
   if (item.estimativa) tags.push(chip("≈ estimativa"));
   const parcial = !info && valorAgora < item.valor - 0.005;

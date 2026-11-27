@@ -189,6 +189,8 @@ export function allocate(week, renda) {
   let rest = renda;
   const cover = {};
   week.ordem.forEach((i) => {
+    // Só aceita o valor inteiro: ou cobre tudo, ou fica para depois (o dinheiro segue para a próxima)
+    if (i.semParcial && rest < i.valor - 0.005) { cover[i.id] = 0; return; }
     const c = Math.max(0, Math.min(i.valor, rest));
     cover[i.id] = c;
     rest -= c;

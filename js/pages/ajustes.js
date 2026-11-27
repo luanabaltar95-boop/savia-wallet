@@ -42,6 +42,7 @@ const CAMPOS_CONTA = [
   { f: "ate", label: "Até (opcional)", type: "date", so: "mes" },
   { f: "divida", label: "Abate a dívida", type: "select", options: (st) => opcoesDivida(st), so: "mes" },
   { f: "investimento", label: "É investimento", type: "checkbox", so: "mes" },
+  { f: "semParcial", label: "Só aceita o valor inteiro (sem pagamento parcial)", type: "checkbox", so: "mes" },
   { f: "compartilhado", label: "Dividido (aba Dividir)", type: "checkbox", so: "semanal" },
 ];
 function linhaConta(src, r, i, state) {
@@ -177,6 +178,7 @@ const SECOES = [
       { f: "valor", label: "Valor" },
       { f: "semana", label: "Pagar no pagamento de", type: "date" },
       { f: "atrasado", label: "Está atrasada", type: "checkbox" },
+      { f: "semParcial", label: "Só aceita o valor inteiro", type: "checkbox" },
       { f: "divida", label: "Abate a dívida", type: "select", options: opcoesDivida },
     ],
     novo: () => ({ id: novoId(), nome: "", valor: 0, grupo: "contas", atrasado: true, acao: "pagar", semana: toISO(nextPayday()) }),
@@ -560,6 +562,7 @@ export function renderAjustes(root, ctx) {
         if (Number(v("dia").value)) novo.diaConfirmar = false;
         ["desde", "ate"].forEach((f) => { if (v(f).value) novo[f] = v(f).value; else delete novo[f]; });
         if (v("divida").value) novo.divida = v("divida").value; else delete novo.divida;
+        if (v("semParcial").checked) novo.semParcial = true; else delete novo.semParcial;
       }
       if (destino === src) {
         salvarParte(state, src, parte(state, src).map((x, k) => (k === i ? novo : x)));

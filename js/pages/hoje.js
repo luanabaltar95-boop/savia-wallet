@@ -69,7 +69,7 @@ export function renderHoje(root, ctx) {
           ${field({ id: "pg-data", label: "Data do pagamento", type: "date", value: toISO(new Date()) })}
           ${contasPg.length > 1 ? select({ id: "pg-banco", label: "Saiu de", options: contasPg, value: bancoDoItem(state, itemPagar.id) }) : ""}
         </div>
-        ${segmented({ name: "pg-tipo", label: "Essa conta", options: [{ id: "tudo", label: "Paguei tudo" }, { id: "parte", label: "Paguei uma parte" }], value: "tudo" })}
+        ${itemPagar.semParcial ? `<p class="hint">Essa conta só aceita o valor inteiro.</p>` : segmented({ name: "pg-tipo", label: "Essa conta", options: [{ id: "tudo", label: "Paguei tudo" }, { id: "parte", label: "Paguei uma parte" }], value: "tudo" })}
         <div class="sheet-total"><span>Total que saiu</span><b id="pg-total">${money(sugerido, true)}</b></div>
         
         <div class="inline-btns"><button class="btn primary" type="submit">Confirmar</button><button class="btn" type="button" id="pg-cancel">Cancelar</button></div>
@@ -251,7 +251,8 @@ export function renderHoje(root, ctx) {
       const juros = Number(sheet.querySelector("#pg-juros").value) || 0;
       const data = sheet.querySelector("#pg-data").value || toISO(new Date());
       if (!(valor >= 0)) return;
-      const quitado = sheet.querySelector('input[name="pg-tipo"]:checked').value === "tudo";
+      const tipoEl = sheet.querySelector('input[name="pg-tipo"]:checked');
+      const quitado = !tipoEl || tipoEl.value === "tudo";
       const bancoEl = sheet.querySelector("#pg-banco");
       const banco = bancoEl ? bancoEl.value : contaPrincipal(state);
       const reg = { valor, juros, data, quitado, banco, ts: Date.now(), nome: item.nome };
