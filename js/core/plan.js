@@ -148,7 +148,9 @@ function baseItems(seed, state, payday) {
     if (d) add({ id: `min-${c.id}`, nome: `${c.nome} — mínimo`, valor: c.minimo, vence: d, grupo: "minimos", estimativa: !c.confirmado, acao: "pagar", cartao: c.id });
   });
 
-  seed.pontuais.filter((p) => p.semana === iso).forEach((p) => add({ ...p, acao: "pagar" }));
+  // Conta em atraso herda "só valor inteiro" da conta de origem (ex.: seguro1 → seguro1-atraso)
+  const inteiro = (p) => p.semParcial || [...seed.mensais, ...(seed.parcelas || [])].some((m) => m.semParcial && String(p.id).startsWith(`${m.id}-`));
+  seed.pontuais.filter((p) => p.semana === iso).forEach((p) => add({ ...p, acao: "pagar", semParcial: inteiro(p) }));
 
   seed.reservasPrazo.forEach((rp) => {
     if (rp.semanas.includes(iso)) add({ id: rp.id, nome: rp.nome, valor: rp.total / rp.semanas.length, grupo: rp.grupo });
