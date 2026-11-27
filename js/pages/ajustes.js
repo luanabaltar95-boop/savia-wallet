@@ -10,6 +10,7 @@ import { cambioHtml, bindCambio } from "./cambio.js";
 import { entradasAjustesHtml, bindEntradasAjustes } from "./entradasAjustes.js";
 import { meuMenuHtml, bindMeuMenu } from "./meuMenu.js";
 import { bancosAjustesHtml, bindBancosAjustes } from "./bancosAjustes.js";
+import { futurosHtml, bindFuturos } from "./futurosAjustes.js";
 import { ativo, blocoLiberado } from "../core/modulos.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
@@ -369,6 +370,7 @@ export function renderAjustes(root, ctx) {
       <summary class="sec-head"><h2><span class="passo">${b.n}</span>${b.titulo}</h2><span class="total">${resumoBloco(b)}</span></summary>
       <div class="sec-body">
         ${b.id === "ciclo" ? cicloHtml : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
+        ${b.id === "contas" ? futurosHtml(ctx) : ""}
       </div>
     </details>${b.id === "ciclo" ? bancosAjustesHtml(ctx, 2) + entradasAjustesHtml(ctx, 3) : ""}`).join("");
   const grupo = (titulo, html) => (html.trim() ? `<section class="grupo"><h3 class="grupo-t">${titulo}</h3><div class="grupo-card">${html}</div></section>` : "");
@@ -643,6 +645,7 @@ export function renderAjustes(root, ctx) {
   bindEntradasAjustes(root, ctx);
   bindMeuMenu(root, ctx);
   bindBancosAjustes(root, ctx);
+  bindFuturos(root, ctx);
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

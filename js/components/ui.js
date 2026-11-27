@@ -56,10 +56,10 @@ export function field({ id, label, value, type = "number", readonly = false, not
 }
 
 // Lista de opções (select)
-export function select({ id, label, options, value, note = "" }) {
+export function select({ id, label, options, value, note = "", attrs = "" }) {
   return `<label class="field" for="${id}">
     <span class="lbl">${esc(label)}</span>
-    <select id="${id}" name="${id}">${options.map((o) => `<option value="${esc(o.id)}" ${o.id === value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
+    <select id="${id}" name="${id}" ${attrs}>${options.map((o) => `<option value="${esc(o.id)}" ${o.id === value ? "selected" : ""}>${esc(o.label)}</option>`).join("")}</select>
     <span class="hint note">${note}</span>
   </label>`;
 }

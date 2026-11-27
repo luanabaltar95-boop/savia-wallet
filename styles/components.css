@@ -636,3 +636,10 @@ details.cats .sub-head .total { margin-left: auto; }
 .mais-pop button:hover, .mais-pop button:focus-visible { background: var(--bg-2, #efe9df); }
 .mais-pop button.danger { color: var(--red, #b3402f); }
 .ent .row-actions { justify-content: flex-start; }
+
+/* Pagamentos futuros (Ajustes) */
+.sub-sec { margin-top: var(--s5, 24px); padding-top: var(--s3); border-top: 1px solid var(--line); }
+.fut-partes { display: grid; gap: var(--s2); }
+.fut-parte { display: grid; grid-template-columns: 1fr 120px auto; gap: var(--s2); align-items: center; }
+.fut-parte .field { margin: 0; }
+.fut-parte .lbl:empty { display: none; }
