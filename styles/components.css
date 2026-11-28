@@ -656,7 +656,7 @@ details.cats .sub-head .total { margin-left: auto; }
 .cats .chips-list { margin-top: 0; }
 .regra { display: grid; gap: var(--s3); }
 .regra + .regra { margin-top: var(--s2); padding-top: var(--s3); border-top: 1px dashed var(--line); }
-.abas { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; overflow: visible; padding: 4px; border-radius: var(--r-full); background: var(--surface-2); }
+.abas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; overflow: visible; padding: 4px; border-radius: var(--r-full); background: var(--surface-2); }
 .aba { justify-content: center; gap: 4px; padding: 8px 4px; font-size: 13px; background: transparent; min-width: 0; }
 .aba.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .aba.on span { color: var(--ink-3); }
@@ -676,3 +676,15 @@ details.cats .sub-head .total { margin-left: auto; }
 .pagas > summary { list-style: none; cursor: pointer; }
 .pagas > summary::-webkit-details-marker { display: none; }
 .obj-l { margin: var(--s2) 0 0; line-height: 1.4; }
+
+/* Minhas contas por categoria: cabeçalho editável e + Adicionar em cada uma */
+.cat-head { align-items: center; gap: var(--s2); }
+.cat-head h4 { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-head .cat-tot { font-size: var(--t-xs); font-weight: 600; color: var(--ink-2); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.cat-head .rc-menu { margin-right: -8px; }
+.cat-grupo .txt-acao { margin-top: 2px; }
+.cat-edit { display: grid; gap: var(--s2); padding: var(--s3); border-radius: var(--r-md); background: var(--surface-2); }
+.cat-edit-ord { display: flex; gap: var(--s2); }
+.nova-cat .save-bar { margin-top: var(--s2); }
+.aba-corpo > .sub { border-top: 0; padding-top: 0; margin-top: 0; }
+.aba-corpo > .sub > .cat-grupo:first-child { margin-top: 0; }

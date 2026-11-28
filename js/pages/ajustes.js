@@ -21,6 +21,7 @@ import { FREQS, pagoDe } from "../core/plan.js";
 import { money, shortDate } from "../core/format.js";
 import { fromISO, toISO, addDays, pagamentoAte, nextPayday } from "../core/calendar.js";
 import { field, select, segmented, esc, toast } from "../components/ui.js";
+import { ICONE } from "../components/icones.js";
 
 // Linha resumida: nome e detalhe à esquerda, valor à direita
 const resumoRow = (nome, [valor, detalhe]) => `<summary>
@@ -68,11 +69,12 @@ function linhaConta(src, r, i, state) {
     const note = c.f === "valor" && emOutraMoeda(state, r) && r.valor ? `≈ ${money(r.valor, true)} hoje` : "";
     return field({ id, label: c.label, type: c.type || "number", value: valor, attrs, note }).replace('<label class="field"', `<label class="field" ${so}`);
   }).join("");
-  const cat = (opcoesCategoria(state).find((c) => c.id === r.categoria) || {}).label || "";
-  const [valor0, det] = freq === "semanal" ? [money(r.valor, true), ""] : SECOES[0].resumo(r);
+  // Agrupado por categoria: a linha mostra a frequência
+  const [valor0, det] = freq === "semanal" ? [money(r.valor, true), "toda semana"] : SECOES[0].resumo(r);
   const valor = emOutraMoeda(state, r) ? fmtMoeda(r.valorMoeda, r.moeda) : valor0;
   const fim = r.ate ? `termina ${shortDate(fromISO(r.ate))}` : "";
-  const resumo = [valor, [det, cat, fim].filter(Boolean).join(" · ")];
+  const fq = freq !== "semanal" && freq !== "mensal" ? nomeFreq(freq) : "";
+  const resumo = [valor, [det, fq, fim].filter(Boolean).join(" · ")];
   return `<details class="row-edit">
     ${resumoRow(r.nome, resumo)}
     <form class="conta-form" data-src="${src}" data-i="${i}" novalidate>
@@ -101,29 +103,62 @@ function linhaOrdem(x, pos, n, state) {
   </div>`;
 }
 
-function contasHtml(state) {
+// Categorias das contas: as minhas + "Outras" para o que ficou sem categoria
+const catDe = (r, ids) => (ids.has(r.categoria) ? r.categoria : "outras");
+const porMes = (src, r) => {
+  const v = Number(r.valor || 0), f = freqDe(src, r);
+  return f === "semanal" ? (v * 52) / 12 : v / ({ mensal: 1, bimestral: 2, trimestral: 3, semestral: 6, anual: 12 }[f] || 1);
+};
+function gruposCategoria(state) {
+  const cats = parte(state, "categorias");
+  const ids = new Set(cats.map((c) => c.id));
   const todas = [
     ...parte(state, "semanais").map((r, i) => ({ src: "semanais", r, i })),
     ...parte(state, "mensais").map((r, i) => ({ src: "mensais", r, i })),
   ];
-  const grupos = FREQ_CONTAS.map((f) => {
-    const its = todas.filter((x) => freqDe(x.src, x.r) === f.id);
-    if (!its.length) return "";
-    const total = its.reduce((t, x) => t + Number(x.r.valor || 0), 0);
-    const org = organizando === f.id;
+  const lista = ids.has("outras") || !todas.some((x) => !ids.has(x.r.categoria)) ? cats : [...cats, { id: "outras", label: "Outras", virtual: true }];
+  return lista.map((c) => ({ ...c, its: todas.filter((x) => catDe(x.r, ids) === c.id) }));
+}
+const ICO_MENU = `<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>`;
+
+function contasHtml(state, ctx) {
+  const grupos = gruposCategoria(state);
+  const html = grupos.map((g, gi) => {
+    const total = g.its.reduce((t, x) => t + porMes(x.src, x.r), 0);
+    const org = organizando === g.id;
+    const editando = ctx.catEdit === g.id;
+    const head = editando
+      ? `<form class="cat-edit" data-cat-form="${esc(g.id)}" novalidate>
+          ${field({ id: `cat-n-${g.id}`, label: "Nome da categoria", type: "text", value: g.label })}
+          <div class="cat-edit-ord">
+            <button class="btn icon" type="button" data-cat-mover="${esc(g.id)}|-1" aria-label="Subir" ${gi === 0 || g.virtual ? "disabled" : ""}>${SETA_CIMA}</button>
+            <button class="btn icon" type="button" data-cat-mover="${esc(g.id)}|1" aria-label="Descer" ${gi >= grupos.filter((x) => !x.virtual).length - 1 || g.virtual ? "disabled" : ""}>${SETA_BAIXO}</button>
+          </div>
+          <div class="save-bar">
+            <button class="btn primary" type="submit">Salvar</button>
+            <button class="btn" type="button" data-cat-cancel>Cancelar</button>
+            ${g.id !== "outras" ? `<button class="link danger-link" type="button" data-cat-rm="${esc(g.id)}">remover</button>` : ""}
+          </div>
+          ${g.id !== "outras" && g.its.length ? `<p class="hint">Ao remover, as ${g.its.length} contas vão para Outras.</p>` : ""}
+        </form>`
+      : `<div class="cat-head"><h4>${esc(g.label)}</h4>
+          <span class="cat-tot">${g.its.length ? `≈ ${money(total, true)}/mês` : ""}</span>
+          <button class="rc-menu" type="button" data-cat-edit="${esc(g.id)}" aria-label="Editar categoria ${esc(g.label)}">${ICO_MENU}</button></div>`;
     return `<div class="cat-grupo">
-      <div class="cat-head"><h4>${esc(f.label)}</h4><span>${money(total, true)}</span></div>
-      ${its.length > 1 ? `<div class="ordem-acoes">
-        <button class="link" data-organizar="${f.id}">${org ? "Pronto" : "Organizar"}</button>
-        ${org && f.id !== "semanal" ? `<button class="link" data-por-dia="${f.id}">por dia do vencimento</button>` : ""}
+      ${head}
+      ${g.its.length > 1 && !editando ? `<div class="ordem-acoes">
+        <button class="link" data-organizar="${esc(g.id)}">${org ? "Pronto" : "Organizar"}</button>
+        ${org ? `<button class="link" data-por-dia="${esc(g.id)}">por dia do vencimento</button>` : ""}
       </div>` : ""}
-      <div class="rows">${org ? its.map((x, k) => linhaOrdem(x, k, its.length, state)).join("") : its.map((x) => linhaConta(x.src, x.r, x.i, state)).join("")}</div>
+      <div class="rows">${org ? g.its.map((x, k) => linhaOrdem(x, k, g.its.length, state)).join("") : g.its.map((x) => linhaConta(x.src, x.r, x.i, state)).join("")}</div>
+      <button class="txt-acao" type="button" data-add-cat="${esc(g.id)}">${ICONE.mais} Adicionar em ${esc(g.label)}</button>
     </div>`;
   }).join("");
   return `<section class="sub" data-sub="contas">
-    
-    ${grupos || `<p class="hint">Nenhuma conta ainda.</p>`}
-    <button class="btn primary add-btn" id="add-conta">+ Adicionar</button>
+    ${html || `<p class="hint">Nenhuma conta ainda.</p>`}
+    ${ctx.novaCat
+      ? `<form class="nova-cat" id="form-cat" novalidate>${field({ id: "cat-nome", label: "Nova categoria", type: "text", value: "" })}<div class="save-bar"><button class="btn primary" type="submit">Criar</button><button class="btn" type="button" data-cat-cancel>Cancelar</button></div></form>`
+      : `<button class="btn primary add-btn" id="add-cat">+ Adicionar categoria</button>`}
   </section>`;
 }
 
@@ -280,7 +315,7 @@ export function renderAjustes(root, ctx) {
 
   // Uma lista (subseção) dentro de um bloco
   const lista = (sec, _, todas) => {
-    if (sec.unificada) return contasHtml(state);
+    if (sec.unificada) return contasHtml(state, ctx);
     const unica = todas.length === 1; // título do bloco já diz o que é
     const rows = parte(state, sec.chave);
     let corpo;
@@ -308,16 +343,6 @@ export function renderAjustes(root, ctx) {
       ${sec.hint ? `<p class="hint">${sec.hint}</p>` : ""}
       ${corpo}
     </section>`;
-  };
-
-  const categoriasHtml = () => {
-    const cats = parte(state, "categorias");
-    return `<div class="sub cats">
-      <ul class="chips-list">${cats.map((c) => `<li>${esc(c.label)}</li>`).join("")}</ul>
-      ${ctx.novaCat
-        ? `<form class="nova-cat" id="form-cat" novalidate>${field({ id: "cat-nome", label: "Nova categoria", type: "text", value: "" })}<button class="btn primary" type="submit">Criar</button></form>`
-        : `<button class="btn primary add-btn" id="add-cat">+ Adicionar</button>`}
-    </div>`;
   };
 
   // Atrasadas: o que falta pagar em cima; as já pagas ficam guardadas embaixo
@@ -348,12 +373,10 @@ export function renderAjustes(root, ctx) {
       { id: "fixas", label: "Contas", n: parte(state, "mensais").length + parte(state, "semanais").length },
       { id: "atraso", label: "Atrasadas", n: parte(state, "pontuais").length },
       { id: "futuras", label: "Futuras", n: parte(state, "pedidos").length },
-      { id: "categorias", label: "Categorias", n: parte(state, "categorias").length },
     ];
     const corpo = aba === "atraso" ? atrasadasHtml()
       : aba === "futuras" ? futurosHtml(ctx)
-      : aba === "categorias" ? categoriasHtml()
-      : contasHtml(state);
+      : contasHtml(state, ctx);
     return `<div class="abas" role="tablist">${abas.map((a) => `<button type="button" role="tab" class="aba ${a.id === aba ? "on" : ""}" aria-selected="${a.id === aba}" data-aba="${a.id}">${a.label}<span>${a.n}</span></button>`).join("")}</div>
       <div class="aba-corpo">${corpo}</div>`;
   };
@@ -573,31 +596,63 @@ export function renderAjustes(root, ctx) {
   root.querySelectorAll("[data-mover]").forEach((b) => (b.onclick = () => {
     const [src, i, dir] = b.dataset.mover.split("|");
     const lista = parte(state, src).slice();
-    const freq = freqDe(src, lista[i]);
-    // vizinho do mesmo grupo (mesma frequência)
+    const ids = new Set(parte(state, "categorias").map((c) => c.id));
+    const cat = catDe(lista[i], ids);
+    // vizinho da mesma categoria (na mesma lista)
     let j = Number(i) + Number(dir);
-    while (j >= 0 && j < lista.length && freqDe(src, lista[j]) !== freq) j += Number(dir);
+    while (j >= 0 && j < lista.length && catDe(lista[j], ids) !== cat) j += Number(dir);
     if (j < 0 || j >= lista.length) return;
     [lista[i], lista[j]] = [lista[j], lista[i]];
     salvarParte(state, src, lista);
     ctx.openSec = "contas"; persist(); ctx.rerender();
   }));
   root.querySelectorAll("[data-por-dia]").forEach((b) => (b.onclick = () => {
+    const ids = new Set(parte(state, "categorias").map((c) => c.id));
+    const naCat = (r) => catDe(r, ids) === b.dataset.porDia;
     const lista = parte(state, "mensais");
-    const grupo = lista.filter((r) => freqDe("mensais", r) === b.dataset.porDia).sort((a, c) => (Number(a.dia) || 99) - (Number(c.dia) || 99));
+    const grupo = lista.filter(naCat).sort((a, c) => (Number(a.dia) || 99) - (Number(c.dia) || 99));
     let k = 0;
-    salvarParte(state, "mensais", lista.map((r) => (freqDe("mensais", r) === b.dataset.porDia ? grupo[k++] : r)));
+    salvarParte(state, "mensais", lista.map((r) => (naCat(r) ? grupo[k++] : r)));
     ctx.openSec = "contas"; persist(); ctx.rerender();
   }));
 
-  const addConta = root.querySelector("#add-conta");
-  if (addConta) addConta.onclick = () => {
-    const rows = [...parte(state, "mensais"), { id: novoId(), nome: "", valor: 0, dia: 1, freq: "mensal", categoria: "outras", grupo: "contas", diaConfirmar: true }];
+  // Categorias: editar nome, ordem, remover; adicionar conta dentro de uma
+  const fimCat = () => { ctx.catEdit = null; ctx.novaCat = false; ctx.openSec = "contas"; ctx.contasAba = "fixas"; };
+  root.querySelectorAll("[data-cat-edit]").forEach((b) => (b.onclick = () => { ctx.catEdit = b.dataset.catEdit; ctx.novaCat = false; ctx.openSec = "contas"; ctx.rerender(); root.querySelector(`[data-cat-form] input`)?.focus(); }));
+  root.querySelectorAll("[data-cat-cancel]").forEach((b) => (b.onclick = () => { fimCat(); ctx.rerender(); }));
+  root.querySelectorAll("[data-cat-form]").forEach((f) => f.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const id = f.dataset.catForm, nome = f.querySelector("input").value.trim();
+    if (!nome) return toast("Dê um nome à categoria");
+    const cats = parte(state, "categorias");
+    salvarParte(state, "categorias", cats.some((c) => c.id === id) ? cats.map((c) => (c.id === id ? { ...c, label: nome } : c)) : [...cats, { id, label: nome }]);
+    fimCat(); salvar(); toast("Salvo ✓");
+  }));
+  root.querySelectorAll("[data-cat-mover]").forEach((b) => (b.onclick = () => {
+    const [id, dir] = b.dataset.catMover.split("|");
+    const cats = parte(state, "categorias").slice();
+    const i = cats.findIndex((c) => c.id === id), j = i + Number(dir);
+    if (i < 0 || j < 0 || j >= cats.length) return;
+    [cats[i], cats[j]] = [cats[j], cats[i]];
+    salvarParte(state, "categorias", cats);
+    ctx.openSec = "contas"; persist(); ctx.rerender();
+  }));
+  root.querySelectorAll("[data-cat-rm]").forEach((b) => (b.onclick = () => {
+    if (!b.dataset.confirma) { b.dataset.confirma = "1"; b.textContent = "Confirmar remoção"; return; }
+    const id = b.dataset.catRm;
+    const cats = parte(state, "categorias").filter((c) => c.id !== id);
+    if (!cats.some((c) => c.id === "outras")) cats.push({ id: "outras", label: "Outras" });
+    salvarParte(state, "categorias", cats);
+    ["semanais", "mensais"].forEach((src) => salvarParte(state, src, parte(state, src).map((r) => (r.categoria === id ? { ...r, categoria: "outras" } : r))));
+    fimCat(); salvar(); toast("Categoria removida");
+  }));
+  root.querySelectorAll("[data-add-cat]").forEach((b) => (b.onclick = () => {
+    const rows = [...parte(state, "mensais"), { id: novoId(), nome: "", valor: 0, dia: 1, freq: "mensal", categoria: b.dataset.addCat, grupo: "contas", diaConfirmar: true }];
     salvarParte(state, "mensais", rows);
     ctx.abrirConta = `mensais|${rows.length - 1}`;
-    ctx.openSec = "contas";
-    salvar();
-  };
+    organizando = null; fimCat(); salvar();
+  }));
+
   if (ctx.abrirConta) {
     const [src, i] = ctx.abrirConta.split("|");
     const f = root.querySelector(`form.conta-form[data-src="${src}"][data-i="${i}"]`);
@@ -632,7 +687,7 @@ export function renderAjustes(root, ctx) {
 
   // + Nova categoria (contas fixas)
   const addCat = root.querySelector("#add-cat");
-  if (addCat) addCat.onclick = () => { ctx.novaCat = true; ctx.openSec = "contas"; ctx.rerender(); root.querySelector("#cat-nome")?.focus(); };
+  if (addCat) addCat.onclick = () => { ctx.novaCat = true; ctx.catEdit = null; ctx.openSec = "contas"; ctx.contasAba = "fixas"; ctx.rerender(); root.querySelector("#cat-nome")?.focus(); };
   const formCat = root.querySelector("#form-cat");
   if (formCat) formCat.addEventListener("submit", (e) => {
     e.preventDefault();
