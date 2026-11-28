@@ -1,0 +1,66 @@
+/* =========================================================
+   OBJETIVOS — seletor, lista em Ajustes, Home por objetivo.
+   ========================================================= */
+.onb-sub { margin: calc(-1 * var(--s2)) 0 0; color: var(--ink-2); font-size: var(--t-sm); }
+.onb-nota { padding: 0 var(--s2); }
+
+/* Seletor de tipos (onboarding e Ajustes) */
+.ob-grade { display: grid; gap: var(--s2); }
+.ob-op { position: relative; }
+.ob-tipo { all: unset; box-sizing: border-box; width: 100%; display: grid; grid-template-columns: 36px 1fr; gap: var(--s3); align-items: center; min-height: 56px; padding: 10px var(--s3); border-radius: var(--r-md); background: var(--surface-2); border: 2px solid transparent; cursor: pointer; transition: border-color .15s, background .15s; }
+.ob-op.on .ob-tipo { background: var(--green-soft); border-color: var(--green); }
+.ob-tipo:disabled { opacity: .55; cursor: default; }
+.ob-tipo:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.ob-ic { font-size: 22px; line-height: 1; text-align: center; }
+.ob-txt { display: grid; min-width: 0; line-height: 1.25; }
+.ob-txt b { font-size: var(--t-sm); }
+.ob-txt small { font-size: var(--t-xs); color: var(--ink-3); }
+.ob-op.on .ob-tipo { padding-right: 60px; }
+.ob-op.on:has(.ob-estrela.on) .ob-tipo { padding-right: 122px; }
+.ob-estrela { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); min-height: 36px; padding: 0 10px; border: 0; border-radius: var(--r-full); background: var(--surface); color: var(--ink-2); font-size: var(--t-xs); font-weight: 600; cursor: pointer; }
+.ob-estrela.on { background: var(--green); color: #fff; }
+
+/* Ajustes → Meus objetivos */
+.ob-ajustes { display: grid; gap: var(--s3); }
+.ob-lista { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--s2); }
+.ob-linha { display: grid; gap: 6px; padding: var(--s3); border-radius: var(--r-md); background: var(--surface-2); }
+.ob-linha.pausado { opacity: .7; }
+.ob-cab { display: grid; grid-template-columns: 32px 1fr auto; gap: var(--s2); align-items: center; }
+.ob-badge { display: inline-block; margin-left: 4px; padding: 1px 8px; border-radius: var(--r-full); background: var(--green); color: #fff; font-size: 10px; font-weight: 700; vertical-align: 2px; }
+.ob-agora { margin: 0; font-size: var(--t-xs); color: var(--ink-2); }
+.ob-falta { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-link { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: var(--r-full); background: var(--terra-soft); color: var(--terra); font-size: var(--t-xs); font-weight: 600; text-decoration: none; }
+.ob-acoes > button { background: var(--surface); }
+.ob-sub { margin: var(--s2) 0 0; font-size: var(--t-sm); color: var(--ink-2); }
+.ob-form { display: grid; gap: var(--s3); }
+.ob-novo { display: grid; gap: var(--s3); }
+.ob-linha .cam-lista { margin-top: 4px; }
+button.cam-n { border: 0; cursor: pointer; }
+
+/* Home: alternar objetivos */
+.ob-chips { display: flex; gap: var(--s2); overflow-x: auto; margin: 0 calc(-1 * var(--s4)); padding: 2px var(--s4); scrollbar-width: none; }
+.ob-chips::-webkit-scrollbar { display: none; }
+.ob-chip { flex: none; min-height: 36px; padding: 0 14px; border: 0; border-radius: var(--r-full); background: var(--surface); box-shadow: var(--shadow); color: var(--ink-2); font-weight: 600; font-size: var(--t-xs); white-space: nowrap; cursor: pointer; }
+.ob-chip.on { background: var(--ink); color: #fff; }
+
+/* Home: etapa da vez + recomendações */
+.agora-card { display: grid; gap: var(--s2); }
+.agora-card .eyebrow { margin: 0; }
+.recs { list-style: none; margin: 0; padding: 0; display: grid; }
+.recs li { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); padding: 8px 0; border-top: 1px solid var(--line); font-size: var(--t-sm); }
+.recs a, .recs span:first-child { color: var(--ink); text-decoration: none; min-width: 0; }
+.fonte { flex: none; padding: 2px 8px; border-radius: var(--r-full); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; background: var(--surface-2); color: var(--ink-3); white-space: nowrap; }
+.fonte.confirmado { background: var(--green-soft); color: var(--green); }
+.fonte.projecao { background: var(--lilac-soft, #ece8f6); color: var(--lilac); }
+.fonte.estimativa { background: #f6efd9; color: #8a6d1f; }
+.fonte.pendente { background: var(--terra-soft); color: var(--terra); }
+.trilha-card > summary { list-style: none; cursor: pointer; }
+.trilha-card > summary::-webkit-details-marker { display: none; }
+.trilha-card[open] > summary { margin-bottom: var(--s2); }
+#comecar { display: grid; gap: var(--s3); }
+#comecar details.card > summary { list-style: none; cursor: pointer; margin: 0; }
+#comecar details.card > summary::-webkit-details-marker { display: none; }
+.recs .fonte { align-self: center; height: auto; line-height: 1.5; }
+.trilha-card > summary, .trilha-card > summary h2 { margin: 0; }
+.trilha-card:not([open]) { padding-bottom: var(--s4); }
+.ob-ajustes { margin-top: var(--s1); }

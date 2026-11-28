@@ -7,7 +7,7 @@ import { SEED } from "../config/seed.js";
 import { toISO, nextPayday } from "./calendar.js";
 import { converterItens } from "./cambio.js";
 
-export const EDITAVEIS = ["semanais", "mensais", "reservaItens", "pontuais", "parcelas", "receber", "compartilhadas", "fontes", "cartoes", "outras", "metas", "colchaoSemanal", "ciclo", "pedidos", "reservasPrazo", "alvos", "categorias", "inicio", "cartoesInicio", "objetivo"];
+export const EDITAVEIS = ["semanais", "mensais", "reservaItens", "pontuais", "parcelas", "receber", "compartilhadas", "fontes", "cartoes", "outras", "metas", "colchaoSemanal", "ciclo", "pedidos", "reservasPrazo", "alvos", "categorias", "inicio", "cartoesInicio", "objetivo", "objetivos"];
 
 const clone = (v) => JSON.parse(JSON.stringify(v));
 

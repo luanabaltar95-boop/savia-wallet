@@ -104,6 +104,11 @@ document.addEventListener("click", (e) => {
   const el = e.target;
   if (el.matches && el.matches('.date-wrap input[type="date"]')) { try { el.showPicker(); } catch { /* sem suporte */ } }
 });
+// Links "abrir a seção X de Ajustes" de qualquer página
+document.addEventListener("click", (e) => {
+  const a = e.target.closest && e.target.closest("[data-abrir-sec]");
+  if (a) ctx.openSec = a.dataset.abrirSec;
+}, true);
 window.addEventListener("hashchange", () => { ctx.menuAberto = false; render(); window.scrollTo(0, 0); });
 
 // Menu "+": abre/fecha sem redesenhar a página

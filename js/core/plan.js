@@ -12,7 +12,7 @@ import { recebidoValor } from "./receber.js";
 import { parte } from "./config.js";
 import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas, totalAvulsas } from "./entradas.js";
 import { liquidoFonte } from "./extra.js";
-import { nomeGuardar } from "./objetivo.js";
+import { guardarPorSemana } from "../goals/modelo.js";
 
 // O plano começa em seed.inicio (primeiro pagamento depois de montar a carteira)
 
@@ -167,8 +167,8 @@ function baseItems(seed, state, payday) {
     if (v) add({ id: p.id, nome: p.nome, valor: v, vence: fromISO(p.data), grupo: "pedidos" });
   });
 
-  // Quanto guardo por semana para o meu objetivo (vai para a conta do objetivo)
-  add({ id: "colchao", nome: nomeGuardar(state), valor: r2(seed.colchaoSemanal * f), grupo: "colchao", acao: "guardar" });
+  // Quanto guardo por semana para cada objetivo em dinheiro (vai para a conta dele)
+  guardarPorSemana(state).forEach((g) => add({ id: g.id, nome: g.nome, valor: r2(g.valor * f), grupo: "colchao", acao: "guardar", conta: g.conta, objetivo: g.objetivo }));
   return items;
 }
 

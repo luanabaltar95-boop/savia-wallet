@@ -396,7 +396,7 @@ export function renderAjustes(root, ctx) {
         ${b.id === "ciclo" ? pagamentoHtml(ctx) : b.id === "contas" ? contasAbas() : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
       </div>
     </details>${b.id === "ciclo" ? `<details class="card sec" data-sec="objetivo" ${ctx.openSec === "objetivo" ? "open" : ""}>
-        <summary class="sec-head"><h2><span class="passo">2</span>Meu objetivo</h2><span class="total">${objetivoResumo(ctx)}</span></summary>
+        <summary class="sec-head"><h2><span class="passo">2</span>Meus objetivos</h2><span class="total">${objetivoResumo(ctx)}</span></summary>
         <div class="sec-body">${objetivoHtml(ctx)}</div></details>` + bancosAjustesHtml(ctx, 3) : ""}`).join("");
   const grupo = (titulo, html) => (html.trim() ? `<section class="grupo"><h3 class="grupo-t">${titulo}</h3><div class="grupo-card">${html}</div></section>` : "");
 

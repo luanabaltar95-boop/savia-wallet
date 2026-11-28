@@ -1,19 +1,18 @@
 // =========================================================
-// PÁGINA HOME — minha trajetória como um jogo: o cenário melhora
-// a cada fase cumprida e a cada dólar que sai dos cartões.
+// PÁGINA HOME — a trajetória dos MEUS objetivos (Goal Engine).
+// O cenário melhora a cada etapa cumprida; alterno entre o caminho
+// inteiro e cada objetivo. A etapa da vez fica logo abaixo do desenho.
 // =========================================================
 import { syncNote } from "../core/sync.js";
 import { MARCA } from "../config/marca.js";
-import { jornada } from "../core/jornada.js";
 import { money, monthYear, dayLabel } from "../core/format.js";
 import { card, stats, esc } from "../components/ui.js";
 import { scene, montarCena } from "../components/scene.js";
-import { ativo } from "../core/modulos.js";
-import { objetivoCard, bindObjetivoCard } from "../components/objetivoCard.js";
-import { rendaEfetiva } from "../core/plan.js";
-import { caixaDaSemana, contasCorrentes } from "../core/caixa.js";
-import { saldoAtual } from "../core/saldo.js";
+import { avaliar, caminho, registrarHistorico } from "../goals/engine.js";
+import { migrarSePreciso } from "../goals/modelo.js";
 import { toISO, semanaAberta } from "../core/calendar.js";
+import { recomendacoes } from "../goals/recomendacoes.js";
+import { etapaHtml, quandoTexto, fonteTag } from "../components/objetivos.js";
 
 const GEAR = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
 
@@ -61,89 +60,106 @@ function boasVindas(root, ctx) {
   root.querySelectorAll("[data-passo]").forEach((a) => a.addEventListener("click", () => { ctx.openSec = a.dataset.passo; }));
 }
 
-// Sem o módulo de dívidas: a Home é o resumo da semana e das contas
-function homeSimples(root, ctx) {
-  const { seed, state } = ctx;
-  const iso = toISO(semanaAberta(state));
-  const cx = caixaDaSemana(state, iso, rendaEfetiva(seed, state, iso).valor);
-  const contas = contasCorrentes(state).map((b) => ({ b, s: saldoAtual(state, b) }));
+// Sem objetivos ainda: convite para escolher
+function semObjetivos(root, ctx) {
   root.innerHTML = `
     <header class="page-head home-head">
       <div class="brand"><img class="brand-logo" src="icons/icon-192.png" alt="" width="44" height="44">
-        <div><p class="eyebrow">${MARCA}</p><h1>Minha carteira</h1></div></div>
+        <div><p class="eyebrow">${MARCA}</p><h1>Meu caminho</h1></div></div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
-    ${objetivoCard(ctx)}
-    ${card({ title: "Esta semana", body: `${stats([
-        { label: "Entra", valor: money(cx.total.entra) },
-        { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste) },
-        { label: "Disponível", valor: money(cx.total.disponivel) },
-      ])}<a class="btn primary" href="#hoje">Ver o que pagar</a>` })}
-    ${card({ title: "Nas minhas contas", body: `<ul class="resumo-lista">${contas.map(({ b, s }) => `<li><div class="rs-nome"><span>${esc(b.banco)}</span></div><b>${s == null ? "—" : money(s, true)}</b></li>`).join("")}</ul><a class="link" href="#contas">ver contas</a>` })}
+    <section class="card scene-card">${scene(0)}
+      <div class="scene-foot"><p class="scene-msg">O que eu quero alcançar? Escolho meus objetivos e a carteira monta o caminho com os meus dados.</p>
+      <a class="btn primary" href="#ajustes" id="home-escolher">Escolher meus objetivos</a></div>
+    </section>
     ${syncNote(ctx)}`;
-  bindObjetivoCard(root, ctx);
+  root.querySelector("#home-escolher").onclick = () => { ctx.openSec = "objetivo"; ctx.obNovo = true; };
 }
+
+const rotuloFase = (i, n) => `Etapa ${Math.min(i + 1, n)} de ${n}`;
 
 export function renderHome(root, ctx) {
   const { seed, state } = ctx;
-  if (!ativo(state, "dividas")) return homeSimples(root, ctx);
-  if (carteiraVazia(seed)) return boasVindas(root, ctx);
-  const j = jornada(seed, state);
-  const n = j.fases.length;
-  const frase = FRASES[Math.min(FRASES.length - 1, Math.floor(j.progresso * (FRASES.length - 1) + 0.0001))];
+  if (carteiraVazia(seed) && !avaliar(seed, state).length) return boasVindas(root, ctx);
+  // Carteira antiga: grava os objetivos derivados (sem apagar nada) e
+  // tira a foto da semana para o histórico (previsão melhorou/piorou)
+  const migrou = migrarSePreciso(state);
+  const todos = avaliar(seed, state);
+  if (registrarHistorico(state, todos, toISO(semanaAberta(state))) || migrou) ctx.persist();
+  const av = todos.filter((a) => !a.emBreve);
+  if (!av.length) return semObjetivos(root, ctx);
 
-  const trilha = j.fases.map((f, i) => {
-    const estado = f.ok ? "ok" : f === j.atual ? "atual" : "trancada";
-    const quando = f.ok ? "cumprida" : f.quando ? `previsão: ${i < 3 ? dayLabel(f.quando) : monthYear(f.quando)}` : "depois dos cartões";
-    return `<li class="fase ${estado}">
-      <span class="fase-n">${f.ok ? "✓" : i + 1}</span>
-      <div><div class="name">${esc(f.titulo)}</div><div class="hint">${esc(f.desc)} · ${quando}</div></div>
-    </li>`;
-  }).join("");
+  // O que está em vista: o caminho todo ou um objetivo
+  const vista = av.length > 1 && (ctx.homeVista === "caminho" || !av.some((a) => a.id === ctx.homeVista)) ? "caminho" : ctx.homeVista && av.some((a) => a.id === ctx.homeVista) ? ctx.homeVista : av.length > 1 ? "caminho" : av[0].id;
+  const um = vista === "caminho" ? null : av.find((a) => a.id === vista);
+  const c = um ? { etapas: um.etapas, progresso: um.progresso, atual: um.atual } : caminho(av);
+  const etapas = c.etapas;
+  const feitas = etapas.filter((e) => e.ok).length;
+  const continuo = um && um.continuo;
+  const p = c.progresso;
+  const frase = continuo ? (p >= 1 ? "Tudo em dia. Céu limpo." : "Cada cuidado em dia limpa um pouco o céu.")
+    : FRASES[Math.min(FRASES.length - 1, Math.floor(p * (FRASES.length - 1) + 0.0001))];
+  const titulo = continuo ? `${feitas} de ${etapas.length} em dia` : etapas.length ? (c.atual ? rotuloFase(feitas, etapas.length) : "Cheguei!") : (um ? um.titulo : "Meu caminho");
+  const rodape = continuo ? `${Math.round(p * 100)}% em dia` : um ? `${Math.round(p * 100)}% de ${um.titulo}` : `${Math.round(p * 100)}% do meu caminho`;
+
+  const recs = recomendacoes(seed, state, av, um ? um.id : null).slice(0, 4);
+  const recHtml = recs.length ? `<ul class="recs">${recs.map((r) => `<li>${r.href ? `<a href="${r.href}">` : r.sec ? `<a href="#ajustes" data-abrir-sec="${r.sec}">` : "<span>"}${esc(r.texto)}${r.href || r.sec ? "</a>" : "</span>"} ${fonteTag(r.tipo)}</li>`).join("")}</ul>` : "";
+  const dinheiro = um && um.valor && um.valor.alvo > 0
+    ? `<p class="hint">${um.tipo === "dividas" ? "Já quitei" : "Tenho"} ${money(um.valor.atual)} de ${money(um.valor.alvo)} ${fonteTag(um.valor.fonte)}${um.valor.fonteAlvo === "estimativa" ? ` · alvo ${fonteTag("estimativa")}` : ""}</p>` : "";
+  const atual = c.atual;
+  const agora = atual
+    ? `<p class="eyebrow">${continuo ? "Para ficar em dia" : "Etapa da vez"}${!um && atual.objetivoTitulo ? ` · ${esc(atual.objetivoTitulo)}` : ""}</p>
+       <div class="name big-sm">${esc(atual.titulo)}</div>
+       <p class="hint">${esc(atual.desc || "")}${atual.quando ? ` · previsão ${quandoTexto(atual.quando)}` : ""}</p>`
+    : `<div class="name big-sm">${etapas.length ? (continuo ? "Tudo em dia ✓" : "Objetivo alcançado 🎉") : "Sem etapas ainda"}</div>
+       ${!etapas.length ? `<p class="hint">Faltam dados para montar as etapas.</p>` : ""}`;
+  const placar = (um ? um.tipo === "dividas" && um : av.find((a) => a.tipo === "dividas")) || null;
 
   root.innerHTML = `
     <header class="page-head home-head">
       <div class="brand">
         <img class="brand-logo" src="icons/icon-192.png" alt="" width="44" height="44">
-        <div>
-        <p class="eyebrow">${MARCA} · minha jornada</p>
-        <h1>Nível ${j.feitas} de ${n}</h1>
-        </div>
+        <div><p class="eyebrow">${MARCA} · ${um ? esc(um.label.toLowerCase()) : "meu caminho"}</p><h1>${esc(titulo)}</h1></div>
       </div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
+    ${av.length > 1 ? `<nav class="ob-chips" aria-label="Meus objetivos">
+      <button type="button" class="ob-chip ${vista === "caminho" ? "on" : ""}" data-vista="caminho">Meu caminho</button>
+      ${av.map((a) => `<button type="button" class="ob-chip ${vista === a.id ? "on" : ""}" data-vista="${a.id}">${a.icone} ${esc(a.titulo)}</button>`).join("")}
+    </nav>` : ""}
 
     <section class="card scene-card">
-      ${scene(j.progresso)}
+      ${scene(p)}
       <div class="scene-foot">
         <p class="scene-msg">${frase}</p>
-        <div class="track" role="progressbar" aria-valuenow="${Math.round(j.progresso * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${Math.max(2, j.progresso * 100)}%"></div></div>
-        <p class="hint">${Math.round(j.progresso * 100)}% do meu caminho</p>
+        <div class="track" role="progressbar" aria-valuenow="${Math.round(p * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${Math.max(2, p * 100)}%"></div></div>
+        <p class="hint">${esc(rodape)}</p>
       </div>
     </section>
 
-    ${j.atual && j.atual.juntar ? objetivoCard(ctx) : j.atual ? card({
-      title: "Próxima fase",
-      cls: "next",
-      body: `<div class="name big-sm">${esc(j.atual.titulo)}</div>
-        <p class="hint">${esc(j.atual.desc)}${j.atual.quando ? ` · previsão ${j.fases.indexOf(j.atual) < 3 ? dayLabel(j.atual.quando) : monthYear(j.atual.quando)}` : ""}</p>
-        <a class="btn primary" href="#hoje">Ver a lista desta sexta</a>`,
-    }) : ""}
+    <section class="card next agora-card">
+      ${agora}
+      ${dinheiro}
+      ${recHtml}
+      <a class="btn primary" href="#hoje">Ver a lista desta sexta</a>
+    </section>
 
-    ${card({
+    ${placar && placar.extra ? card({
       title: "Placar",
       body: stats([
-        { label: "Já saiu dos cartões", valor: money(j.pagoCartoes), sub: `de ${money(j.inicioCartoes)}` },
-        { label: "Semanas no piso", valor: String(j.semanasMeta), sub: `≥ ${money(seed.metas.piso)}` },
-        { label: "Cartões livres", valor: j.fimCartoes ? monthYear(j.fimCartoes) : "—", sub: "previsão" },
+        { label: "Já saiu dos cartões", valor: money(placar.extra.placar.pagoCartoes), sub: `de ${money(placar.extra.placar.inicioCartoes)}` },
+        { label: "Semanas no piso", valor: String(placar.extra.placar.semanasMeta), sub: `≥ ${money(seed.metas.piso)}` },
+        { label: "Cartões livres", valor: placar.extra.placar.fimCartoes ? monthYear(new Date(placar.extra.placar.fimCartoes + "T12:00")) : "—", sub: "previsão" },
       ]),
-    })}
+    }) : ""}
 
-    ${card({ title: "A trilha", body: `<ol class="trilha">${trilha}</ol>` })}
+    ${etapas.length ? `<details class="card trilha-card"><summary class="card-head"><h2>Todas as etapas</h2><span class="total">${feitas}/${etapas.length}</span></summary>
+      <ol class="cam-lista">${etapas.map((e, i) => etapaHtml(e, i, atual)).join("")}</ol></details>` : ""}
 
     ${syncNote(ctx)}
   `;
 
-  montarCena(root, j.fases);
-  bindObjetivoCard(root, ctx);
+  montarCena(root, etapas);
+  root.querySelectorAll("[data-vista]").forEach((b) => (b.onclick = () => { ctx.homeVista = b.dataset.vista; ctx.rerender(); }));
+  root.querySelectorAll("[data-abrir-sec]").forEach((a) => (a.onclick = () => { ctx.openSec = a.dataset.abrirSec; }));
 }

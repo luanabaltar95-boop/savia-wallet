@@ -7,14 +7,14 @@ import { toISO, fromISO, nextPayday } from "./calendar.js";
 import { serieAtaque, projetar, rendaDa, buildWeek, allocate, rendaEfetiva } from "./plan.js";
 import { pagamentoSeguinte } from "./calendar.js";
 import { simularCartoes } from "./debts.js";
-import { progresso as progressoObjetivo } from "./objetivo.js";
 
 // Algum registro desta conta (ou do que passou para outra semana) foi marcado como feito?
-function feito(state, id) {
+export function feito(state, id) {
   return Object.values(state.pagos || {}).some((sem) =>
     Object.entries(sem).some(([k, v]) => v && (k === id || k.startsWith(id + "@"))));
 }
 
+// Etapas de "sair das dívidas" (o Goal Engine usa estas fases)
 export function jornada(seed, state) {
   const hoje = new Date();
   const hojeISO = toISO(hoje);
@@ -56,13 +56,6 @@ export function jornada(seed, state) {
       ok: o.saldo <= 0 || (o.ate && hojeISO > o.ate), quando: o.ate ? fromISO(o.ate) : null,
     })),
   ];
-  // Última etapa: juntar dinheiro (o que defini em Meu objetivo)
-  const ob = progressoObjetivo(seed, state, hoje);
-  if (ob.tipo !== "dividas" && ob.alvo > 0) {
-    fases.push({ id: "juntar", titulo: ob.nome || "Juntar dinheiro", desc: `Tenho $${Math.round(ob.atual).toLocaleString("pt-BR")} de $${Math.round(ob.alvo).toLocaleString("pt-BR")}`,
-      ok: ob.falta <= 0, quando: ob.chegaEm ? fromISO(ob.chegaEm) : null, juntar: true });
-  }
-
   const feitas = fases.filter((f) => f.ok).length;
   const atual = fases.find((f) => !f.ok) || null;
 

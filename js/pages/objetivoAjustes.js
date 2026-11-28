@@ -1,106 +1,137 @@
 // =========================================================
-// MEU OBJETIVO (Ajustes) — o que eu quero alcançar, quanto guardo
-// por semana e em qual conta. O "Guardar" entra no plano da Hoje
-// logo depois do "para usar", e a Home mostra quanto falta.
+// AJUSTES → MEUS OBJETIVOS — vários objetivos, um principal,
+// em ordem de prioridade. Os dados vêm da carteira (fonte única):
+// aqui só fica o que é do objetivo (valor, data, quanto guardar).
 // =========================================================
-import { salvarParte } from "../core/config.js";
-import { objetivo, progresso } from "../core/objetivo.js";
-import { jornada } from "../core/jornada.js";
-import { poupanca } from "../core/destino.js";
-import { fromISO, toISO } from "../core/calendar.js";
-import { money, shortDate } from "../core/format.js";
-// Data com o ano quando não é este ano (ex.: 14/01/28)
-const dataAno = (iso) => { const d = fromISO(iso); return d.getFullYear() === new Date().getFullYear() ? shortDate(d) : `${shortDate(d)}/${String(d.getFullYear()).slice(2)}`; };
-import { field, select, esc, toast } from "../components/ui.js";
+import { todosObjetivos, salvarObjetivos, normalizar, novoIdObjetivo } from "../goals/modelo.js";
+import { avaliar } from "../goals/engine.js";
+import { tipo } from "../goals/tipos.js";
+import { seletorObjetivos, camposObjetivo, lerCamposObjetivo, etapaHtml, quandoTexto } from "../components/objetivos.js";
+import { ICONE } from "../components/icones.js";
+import { money } from "../core/format.js";
+import { esc, toast } from "../components/ui.js";
 
-// O caminho: etapas calculadas dos meus dados + a última, juntar
-function caminho(ctx) {
-  try { return jornada(ctx.seed, ctx.state); } catch { return null; }
-}
+const REPETEM = ["compra", "personalizado", "economizar"]; // tipos que podem ter mais de um
+const pct = (a) => `${Math.round(a.progresso * 100)}%`;
 
 export function objetivoResumo(ctx) {
-  const j = caminho(ctx);
-  if (j && j.fases.length) return `etapa ${Math.min(j.feitas + 1, j.fases.length)} de ${j.fases.length}`;
-  const o = objetivo(ctx.state);
-  return o.nome ? esc(o.nome) : "definir";
+  const ativos = todosObjetivos(ctx.state).filter((g) => g.status === "ativo");
+  if (!ativos.length) return "definir";
+  const p = ativos.find((g) => g.principal) || ativos[0];
+  return `${esc(p.nome || tipo(p.tipo).label)}${ativos.length > 1 ? ` +${ativos.length - 1}` : ""}`;
+}
+
+function linha(ctx, a, i, total) {
+  const g = a;
+  const menu = ctx.obMenu === g.id;
+  const det = a.emBreve ? "em breve" : a.continuo ? `${a.etapas.filter((e) => e.ok).length} de ${a.etapas.length} em dia`
+    : a.tipo !== "dividas" && a.valor && a.valor.alvo ? `${money(a.valor.atual)} de ${money(a.valor.alvo)} · ${pct(a)}` : a.etapas.length ? `etapa ${Math.min(a.etapas.filter((e) => e.ok).length + 1, a.etapas.length)} de ${a.etapas.length}` : "";
+  if (ctx.obEdit === g.id) return formHtml(ctx, g);
+  // Personalizado por etapas: marco cada etapa como feita aqui mesmo
+  const manual = g.tipo === "personalizado" && !(g.alvo > 0);
+  const etapas = a.etapas.length && (ctx.obVer === g.id || manual)
+    ? `<ol class="cam-lista">${a.etapas.map((e, k) => manual
+      ? `<li class="cam-etapa ${e.ok ? "ok" : ""}"><button type="button" class="cam-n" data-ob-etapa="${g.id}|${e.id}" aria-label="Marcar ${esc(e.titulo)}">${e.ok ? "✓" : k + 1}</button><div class="cam-txt"><b>${esc(e.titulo)}</b></div></li>`
+      : etapaHtml(e, k, a.atual)).join("")}</ol>` : "";
+  return `<li class="ob-linha ${g.status !== "ativo" ? "pausado" : ""}">
+    <div class="ob-cab">
+      <span class="ob-ic" aria-hidden="true">${a.icone}</span>
+      <div class="ob-txt"><b>${esc(a.titulo)}${g.principal ? ` <span class="ob-badge">principal</span>` : ""}</b>
+        <small>${esc([g.status === "pausado" ? "pausado" : "", det].filter(Boolean).join(" · "))}</small></div>
+      <button class="rc-menu" type="button" data-ob-menu="${g.id}" aria-label="Opções de ${esc(a.titulo)}">${ICONE.pontos}</button>
+    </div>
+    ${g.status === "ativo" && a.atual ? `<p class="ob-agora">Agora: <b>${esc(a.atual.titulo)}</b>${a.atual.quando ? ` · previsão ${quandoTexto(a.atual.quando)}` : ""}</p>` : ""}
+    ${a.faltando.length ? `<div class="ob-falta">${a.faltando.map((f) => f.onde.sec ? `<a href="#ajustes" class="chip-link" data-ob-ir="${f.onde.sec}">+ ${esc(f.label)}</a>` : `<a class="chip-link" href="${f.onde.href}">+ ${esc(f.label)}</a>`).join("")}</div>` : ""}
+    ${a.etapas.length && !manual ? `<button class="link" type="button" data-ob-ver="${g.id}">${ctx.obVer === g.id ? "esconder etapas" : `ver as ${a.etapas.length} etapas`}</button>` : ""}
+    ${etapas}
+    ${menu ? `<div class="sheet-acoes ob-acoes">
+      ${a.emBreve ? "" : `<button type="button" data-ob-editar="${g.id}">Editar</button>`}
+      ${!g.principal && g.status === "ativo" ? `<button type="button" data-ob-principal-set="${g.id}">Tornar principal</button>` : ""}
+      ${i > 0 ? `<button type="button" data-ob-mover="${g.id}|-1">Subir na prioridade</button>` : ""}
+      ${i < total - 1 ? `<button type="button" data-ob-mover="${g.id}|1">Descer na prioridade</button>` : ""}
+      <button type="button" data-ob-pausar="${g.id}">${g.status === "ativo" ? "Pausar" : "Retomar"}</button>
+      <button type="button" class="danger" data-ob-remover="${g.id}">Remover</button>
+      <button type="button" class="neutro" data-ob-menu="${g.id}">Fechar</button>
+    </div>` : ""}
+  </li>`;
+}
+
+function formHtml(ctx, g) {
+  return `<li class="ob-linha"><form class="ob-form" data-ob-form="${g.id}" novalidate>
+    <div class="ob-cab"><span class="ob-ic" aria-hidden="true">${tipo(g.tipo).icone}</span><div class="ob-txt"><b>${esc(tipo(g.tipo).label)}</b>
+      <small>${esc(tipo(g.tipo).desc)}</small></div></div>
+    <div class="fields stack">${camposObjetivo(ctx.state, g)}</div>
+    ${g.tipo === "dividas" ? `<p class="hint">As etapas saem dos meus atrasados, cartões, dívidas e parcelamentos.</p>` : ""}
+    ${tipo(g.tipo).continuo ? `<p class="hint">Objetivo contínuo: a carteira acompanha se está tudo em dia.</p>` : ""}
+    <div class="save-bar"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-ob-cancelar>Cancelar</button></div>
+  </form></li>`;
 }
 
 export function objetivoHtml(ctx) {
-  const { state } = ctx;
-  const o = { ...objetivo(state), ...(ctx.objDraft || {}) };
-  const bancos = state.bancos || [];
-  const p = progresso(ctx.seed, state);
-  const j = caminho(ctx);
-  const etapas = j ? j.fases.filter((f) => !f.juntar) : [];
-  const item = (f, i) => {
-    const st = f.ok ? "ok" : f === j.atual ? "atual" : "";
-    const quando = f.ok ? "feito" : f.quando ? `previsão ${dataAno(typeof f.quando === "string" ? f.quando : toISO(f.quando))}` : "";
-    return `<li class="cam-etapa ${st}"><span class="cam-n">${f.ok ? "✓" : i + 1}</span>
-      <div class="cam-txt"><b>${esc(f.titulo)}</b><small>${esc(f.desc)}${quando ? ` · ${quando}` : ""}</small></div></li>`;
-  };
-  // Mostro até a etapa atual + as 2 seguintes; o resto fica recolhido
-  const corte = Math.max(3, (j && j.atual ? etapas.indexOf(j.atual) : 0) + 3);
-  const lista = etapas.slice(0, corte).map(item).join("") + (etapas.length > corte
-    ? `<li><details class="cam-mais"><summary class="link">ver mais ${etapas.length - corte} etapas</summary><ol class="cam-lista">${etapas.slice(corte).map((f, k) => item(f, k + corte)).join("")}</ol></details></li>` : "");
-  const nJuntar = etapas.length + 1;
-  const juntarOk = p.alvo > 0 && p.falta <= 0;
-  const tem = (o.tipo !== "dividas" && (o.alvo > 0 || o.nome)) || o.semanal > 0;
-  const ritmo = p.alvo && o.tipo !== "dividas" && (p.precisaSemana || p.chegaEm)
-    ? `<p class="hint">${p.precisaSemana ? `Para chegar até ${dataAno(p.ate)}: ${money(p.precisaSemana)} por semana.` : ""}${p.chegaEm ? ` No ritmo atual chego em ${dataAno(p.chegaEm)}.` : ""}</p>` : "";
-  return `<div class="caminho">
-      <p class="hint">Meu caminho: pagar os atrasados, quitar as dívidas e juntar dinheiro. As etapas saem das minhas contas e dívidas.</p>
-      ${etapas.length ? `<ol class="cam-lista">${lista}</ol>` : ""}
-      ${tem && !ctx.objEdit ? `<div class="cam-juntar">
-        <div class="cam-etapa ${juntarOk ? "ok" : ""}"><span class="cam-n">${juntarOk ? "✓" : nJuntar}</span>
-          <div class="cam-txt"><b>${esc(o.nome || "Juntar dinheiro")}</b><small>${[p.alvo ? `${money(p.atual)} de ${money(p.alvo)}` : "", o.semanal ? `${money(o.semanal)}/semana` : "", o.ate ? `até ${dataAno(o.ate)}` : ""].filter(Boolean).join(" · ")}</small></div></div>
-        ${ritmo}
-        <div class="cam-acoes">
-          <button class="txt-acao" type="button" data-obj-editar>Editar</button>
-          <button class="txt-acao perigo" type="button" data-obj-remover>Remover</button>
-        </div>
-      </div>` : `<form id="form-objetivo" class="cam-juntar" novalidate>
-        <div class="cam-etapa"><span class="cam-n">${nJuntar}</span>
-          <div class="cam-txt"><b>Juntar dinheiro</b><small>Para quê, quanto e até quando</small></div></div>
-        <div class="fields stack">
-          ${field({ id: "ob-nome", label: "Para quê", type: "text", value: tem ? o.nome : "", placeholder: "Ex.: reserva de emergência, viagem" })}
-          ${field({ id: "ob-alvo", label: "Quanto quero juntar", value: tem ? (o.alvo || "") : "", prefix: "$", placeholder: "0,00" })}
-          ${field({ id: "ob-ate", label: "Até quando (opcional)", type: "date", value: o.ate || "" })}
-          ${field({ id: "ob-semanal", label: "Quanto guardo por semana", value: o.semanal || "", prefix: "$", placeholder: "0,00", note: "Já guardo um pouco desde agora, mesmo pagando as dívidas" })}
-          ${select({ id: "ob-conta", label: "Guardo na conta", options: bancos.length ? bancos.map((b) => ({ id: b.id, label: b.banco })) : [{ id: "", label: "Poupança" }], value: o.conta || poupanca(state).id })}
-        </div>
-        <div class="save-bar"><button class="btn primary" type="submit">Salvar</button>
-          ${tem ? `<button class="btn" type="button" data-obj-cancelar>Cancelar</button>` : ""}</div>
-      </form>`}
-    </div>`;
+  const { state, seed } = ctx;
+  const todos = todosObjetivos(state).filter((g) => g.status !== "arquivado");
+  const av = avaliar(seed, state);
+  const comAval = todos.map((g) => ({ ...(av.find((a) => a.id === g.id) || { ...g, titulo: g.nome || tipo(g.tipo).label, icone: tipo(g.tipo).icone, label: tipo(g.tipo).label, etapas: [], faltando: [], progresso: 0, atual: null }), principal: g.principal, status: g.status }));
+  const ativos = comAval.filter((g) => g.status === "ativo");
+  const pausados = comAval.filter((g) => g.status === "pausado");
+  const novo = ctx.obEdit && String(ctx.obEdit).startsWith("novo:") ? normalizar({ id: ctx.obEdit, tipo: ctx.obEdit.slice(5) }) : null;
+  const desativados = ativos.map((g) => g.tipo).filter((t) => !REPETEM.includes(t));
+  return `<div class="ob-ajustes">
+    <p class="hint">Meus objetivos em ordem de prioridade. O dinheiro vai primeiro para o de cima.</p>
+    ${ativos.length || novo ? `<ul class="ob-lista">${ativos.map((a, i) => linha(ctx, a, i, ativos.length)).join("")}${novo ? formHtml(ctx, novo) : ""}</ul>` : `<p class="hint">Nenhum objetivo ainda.</p>`}
+    ${pausados.length ? `<h4 class="ob-sub">Pausados</h4><ul class="ob-lista">${pausados.map((a, i) => linha(ctx, a, i, pausados.length)).join("")}</ul>` : ""}
+    ${ctx.obNovo ? `<div class="ob-novo"><h4 class="ob-sub">O que quero alcançar?</h4>${seletorObjetivos({ desativados, principal: undefined })}
+        <button class="btn" type="button" data-ob-novo-fechar>Cancelar</button></div>`
+      : !novo ? `<button class="btn primary add-btn" type="button" data-ob-novo>+ Adicionar objetivo</button>` : ""}
+  </div>`;
 }
 
 export function bindObjetivo(root, ctx) {
-  const { state, persist } = ctx;
-  const abrir = () => { ctx.openSec = "objetivo"; ctx.rerender(); };
-  root.querySelector("[data-obj-editar]")?.addEventListener("click", () => { ctx.objEdit = true; abrir(); });
-  root.querySelector("[data-obj-cancelar]")?.addEventListener("click", () => { ctx.objEdit = false; abrir(); });
-  const rm = root.querySelector("[data-obj-remover]");
-  if (rm) rm.onclick = () => {
-    if (!rm.dataset.confirma) { rm.dataset.confirma = "1"; rm.textContent = "Confirmar: remover"; return; }
-    state.config = { ...state.config, objetivo: {} };
-    salvarParte(state, "colchaoSemanal", 0);
-    ctx.objEdit = false; ctx.openSec = "objetivo";
-    persist(); ctx.rerender(); toast("Objetivo removido");
-  };
-  const f = root.querySelector("#form-objetivo");
-  if (!f) return;
-  const ler = () => ({
-    tipo: "reserva", nome: f.querySelector("#ob-nome").value.trim(),
-    alvo: Number(String(f.querySelector("#ob-alvo").value).replace(",", ".")) || 0,
-    ate: f.querySelector("#ob-ate").value, conta: f.querySelector("#ob-conta").value,
-    semanal: Number(String(f.querySelector("#ob-semanal").value).replace(",", ".")) || 0,
+  const { state } = ctx;
+  const box = root.querySelector(".ob-ajustes");
+  if (!box) return;
+  const de = (sel, fn) => box.querySelectorAll(sel).forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); fn(b); }));
+  const re = () => { ctx.openSec = "objetivo"; ctx.rerender(); };
+  const gravar = (lista, msg) => { salvarObjetivos(state, lista); ctx.obMenu = null; ctx.obEdit = null; ctx.openSec = "objetivo"; ctx.persist(); ctx.rerender(); if (msg) toast(msg); };
+  const lista = () => todosObjetivos(state);
+
+  de("[data-ob-menu]", (b) => { ctx.obMenu = ctx.obMenu === b.dataset.obMenu ? null : b.dataset.obMenu; re(); });
+  de("[data-ob-ver]", (b) => { ctx.obVer = ctx.obVer === b.dataset.obVer ? null : b.dataset.obVer; re(); });
+  de("[data-ob-editar]", (b) => { ctx.obEdit = b.dataset.obEditar; ctx.obMenu = null; re(); });
+  de("[data-ob-cancelar]", () => { ctx.obEdit = null; re(); });
+  de("[data-ob-novo]", () => { ctx.obNovo = true; re(); });
+  de("[data-ob-novo-fechar]", () => { ctx.obNovo = false; re(); });
+  de("[data-ob-tipo]", (b) => { ctx.obNovo = false; ctx.obEdit = `novo:${b.dataset.obTipo}`; re(); });
+  de("[data-ob-etapa]", (b) => {
+    const [gid, eid] = b.dataset.obEtapa.split("|");
+    gravar(lista().map((g) => (g.id === gid ? { ...g, etapas: g.etapas.map((e) => (e.id === eid ? { ...e, feito: !e.feito } : e)) } : g)));
   });
-  f.addEventListener("submit", (e) => {
+  de("[data-ob-ir]", (b) => { ctx.openSec = b.dataset.obIr; ctx.rerender(); });
+  de("[data-ob-principal-set]", (b) => gravar(lista().map((g) => ({ ...g, principal: g.id === b.dataset.obPrincipalSet })), "Agora é o principal"));
+  de("[data-ob-mover]", (b) => {
+    const [id, dir] = b.dataset.obMover.split("|");
+    const l = lista().filter((g) => g.status !== "arquivado");
+    const i = l.findIndex((g) => g.id === id), j = i + Number(dir);
+    if (i < 0 || j < 0 || j >= l.length) return;
+    [l[i], l[j]] = [l[j], l[i]];
+    gravar([...l.map((g, k) => ({ ...g, prioridade: k + 1 })), ...lista().filter((g) => g.status === "arquivado")]);
+  });
+  de("[data-ob-pausar]", (b) => gravar(lista().map((g) => (g.id === b.dataset.obPausar ? { ...g, status: g.status === "ativo" ? "pausado" : "ativo", principal: false } : g))));
+  de("[data-ob-remover]", (b) => {
+    if (!b.dataset.confirma) { b.dataset.confirma = "1"; b.textContent = "Confirmar: remover"; return; }
+    // Arquivado: sai das telas e do plano, mas o histórico fica guardado
+    gravar(lista().map((g) => (g.id === b.dataset.obRemover ? { ...g, status: "arquivado", principal: false } : g)), "Objetivo removido");
+  });
+  box.querySelectorAll("[data-ob-form]").forEach((f) => f.addEventListener("submit", (e) => {
     e.preventDefault();
-    const { semanal, ...o } = ler();
-    state.config = { ...state.config, objetivo: o };
-    salvarParte(state, "colchaoSemanal", semanal);
-    ctx.objDraft = null; ctx.objEdit = false; ctx.openSec = "objetivo";
-    persist(); ctx.rerender(); toast("Salvo ✓");
-  });
+    const id = f.dataset.obForm;
+    const atuais = lista();
+    if (id.startsWith("novo:")) {
+      const g = normalizar(lerCamposObjetivo(f, { tipo: id.slice(5), etapas: [] }));
+      const ativos = atuais.filter((x) => x.status === "ativo");
+      gravar([...atuais, { ...g, id: novoIdObjetivo(), dono: ctx.usuario || "", inicio: new Date().toISOString().slice(0, 10), prioridade: ativos.length + 1, principal: !ativos.length }], "Objetivo criado");
+    } else {
+      gravar(atuais.map((g) => (g.id === id ? lerCamposObjetivo(f, g) : g)), "Salvo ✓");
+    }
+  }));
 }

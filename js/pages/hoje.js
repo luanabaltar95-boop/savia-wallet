@@ -9,6 +9,7 @@ import { ajudaDa } from "../core/juntas.js";
 import { carteiraVazia } from "./home.js";
 import { poupanca, vaiParaPoupanca } from "../core/destino.js";
 import { contaDestino } from "../core/objetivo.js";
+const contaDoGuardar = (state, i) => (state.bancos || []).find((b) => b.id === i.conta) || contaDestino(state);
 import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
@@ -130,7 +131,7 @@ export function renderHoje(root, ctx) {
       <div class="card-head"><h2>Plano de pagamento</h2><span class="total">${nPagos}/${fazer.length} pagos</span></div>
       ${fazer.length ? `<ul class="pl-lista">${fazer.map((i, k) => {
         const info = pagamento(state, iso, i.id);
-        return planoRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: i.grupo === "colchao" ? contaDestino(state).banco : vaiParaPoupanca(i, payday) ? pp.banco : "" });
+        return planoRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: i.grupo === "colchao" ? contaDoGuardar(state, i).banco : vaiParaPoupanca(i, payday) ? pp.banco : "" });
       }).join("")}</ul>` : `<p class="hint">Nada para pagar com o que entra agora.</p>`}
     </section>`;
 
@@ -269,7 +270,7 @@ export function renderHoje(root, ctx) {
       const banco = bancoEl ? bancoEl.value : contaPrincipal(state);
       const reg = { valor, juros, data, quitado, banco, ts: Date.now(), nome: item.nome };
       // Guardar: o dinheiro sai da conta e entra na conta do objetivo
-      if (item.grupo === "colchao") reg.para = contaDestino(state).id;
+      if (item.grupo === "colchao") reg.para = contaDoGuardar(state, item).id;
       const origEl = sheet.querySelector("#pg-orig");
       if (origEl && Number(origEl.value) > 0) {
         // Cotação real deste pagamento (com taxas) vira a cotação das próximas contas

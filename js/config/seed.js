@@ -40,4 +40,6 @@ export const SEED = {
   ],
   inicio: null,
   cartoesInicio: null,
+  objetivo: {},
+  objetivos: [],
 };
