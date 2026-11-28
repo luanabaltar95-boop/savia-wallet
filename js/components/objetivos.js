@@ -63,9 +63,10 @@ export function lerCamposObjetivo(root, g, p = "ob") {
 }
 
 // Uma etapa na lista (número, título, detalhe e quando)
+// Estados: alcançada · atual · futura (com previsão) · sem previsão
 export function etapaHtml(e, i, atual) {
-  const st = e.ok ? "ok" : e === atual ? "atual" : "";
-  const quando = e.ok ? "feito" : e.quando ? `previsão ${quandoTexto(e.quando)}` : "";
+  const st = e.ok ? "ok" : e === atual || (atual && e.id === atual.id && e.objetivo === atual.objetivo) ? "atual" : e.quando ? "futura" : "sem-data";
+  const quando = e.ok ? "alcançada" : e.quando ? `previsão ${quandoTexto(e.quando)}` : "sem previsão";
   return `<li class="cam-etapa ${st}"><span class="cam-n">${e.ok ? "✓" : i + 1}</span>
     <div class="cam-txt"><b>${esc(e.titulo)}</b><small>${[e.desc, quando].filter(Boolean).map(esc).join(" · ")}</small></div></li>`;
 }

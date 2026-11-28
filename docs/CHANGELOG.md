@@ -1,5 +1,15 @@
 # Changelog
 
+## Evolução 001.1 — parte 2 (branch `evolucao-001`)
+- Ambientes: `?mock` ignorado em produção; sem resposta de `/api` → demo (exceto `PRODUCAO_HOSTS`); preview com URL de produção → demo; "restaurar dados de teste"; perfis `@dani` (renda variável) e `@eva` (objetivo concluído).
+- Segurança: `tests/rls` (SQL + API). Encontradas 3 falhas de isolamento em conexões/compartilhados/funções → `0009_seguranca_conexoes.sql` (não aplicada em produção). Pendente: e-mail exposto no login por @.
+- Planejamento: `goals/estrategia.js` separa os conceitos; plano e recursos usam a mesma classificação. Mesmo comportamento da 001.1.
+- Moedas: conta sem cotação fica marcada e o app avisa; objetivo "moedas" mostra origem e data das taxas.
+- Objetivo na conta corrente: progresso marcado como estimativa.
+- Jornada: estados das etapas; mascote pela fração real; barra sem mínimo artificial; Home vazia orientada a objetivos (sai a lista de "5 passos" focada em dívidas).
+- Textos: "Ver meu plano", "Dinheiro deste período".
+- Testes: 23 regras + 9 ambientes + 30 RLS + 11 API.
+
 ## Evolução 001.1 — validação e estabilização (branch `evolucao-001`)
 - Ambientes: `api/config.js` + `js/config/ambiente.js`; preview nunca usa o banco de produção; modo demo com perfis fictícios (`js/demo/perfis.js`) e faixa "Teste".
 - Planejamento unificado: Guardar dos objetivos passou para depois das obrigações (camada 3,5), por prioridade. **Muda o plano de quem usava o Guardar antes das contas.**

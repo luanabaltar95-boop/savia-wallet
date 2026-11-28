@@ -8,12 +8,12 @@ Site estático: HTML + JavaScript com módulos nativos, **sem build e sem framew
 | `js/app.js` | rotas por hash, contexto (`ctx`), salvar/sincronizar |
 | `js/config/` | marca, seed vazio (nada pessoal), chaves públicas do Supabase |
 | `js/core/` | regras de negócio: calendário/ciclo, plano da semana (`plan.js`), caixa e saldos, dívidas, jornada, câmbio, importação, sincronização |
-| `js/goals/` | **Goal Engine**: `tipos.js` (catálogo), `modelo.js` (dados, migração), `necessidades.js` (fonte única), `engine.js` (avaliação), `recomendacoes.js` (guia) |
+| `js/goals/` | **Goal Engine**: `tipos.js` (catálogo), `modelo.js` (dados, migração), `necessidades.js` (fonte única), `engine.js` (avaliação), `estrategia.js` (conceitos e ordem de distribuição), `recursos.js` (dinheiro do período), `recomendacoes.js` (guia) |
 | `js/pages/` | uma página por arquivo; só desenha e liga eventos |
 | `js/components/` | peças de tela reutilizadas (`ui.js`, `objetivos.js`, `weekNav.js`, `scene.js`, ícones) |
 | `styles/` | `tokens.css` (design system), `global.css`, `components.css`, `pagamentos.css`, `objetivos.css` |
 | `supabase/migrations/` | tabelas, RLS e funções (sem dados pessoais) |
-| `tests/` | testes do Goal Engine (`node tests/goals.test.mjs`) |
+| `tests/` | regras (`goals.test.mjs`), ambientes (`ambiente.test.mjs`), RLS (`rls/`) — ver `TESTING.md` |
 | `api/` | Vercel Function `config.js` (ambiente e Supabase por variável) |
 | `js/demo/` | perfis fictícios do modo demonstração |
 | `docs/` | esta documentação |
@@ -60,4 +60,6 @@ Nada do Goal Engine é gravado além da definição do objetivo e do histórico 
 - **ADR-005 — Um item Guardar por objetivo.** O primeiro mantém o id `colchao` para os pagamentos já marcados continuarem valendo.
 - **ADR-006 — Saldo dividido por prioridade.** Dois objetivos na mesma conta não contam o mesmo dinheiro.
 - **ADR-007 — Planejamento unificado (001.1).** Objetivos entram no plano depois das obrigações (camada 3,5), em ordem de prioridade; não existe plano por objetivo. `goals/recursos.js` só lê esse plano.
+- **ADR-009 — Trajetória como componente (001.1).** `components/scene.js` só recebe progresso e etapas `{ok, quando, frac}`; nenhuma regra financeira. Estados: alcançada, atual, futura, sem previsão.
+- **ADR-010 — Segurança testada com evidência (001.1).** `tests/rls` roda as migrações num Postgres com a estrutura do Supabase e testa A×B×C por SQL e pela API (PostgREST). Ver `SECURITY.md`.
 - **ADR-008 — Ambientes por variável (001.1).** `/api/config` (Vercel Function) informa o ambiente; preview sem banco de teste roda em demo com dados fictícios. Ver `ENVIRONMENTS.md`.

@@ -13,6 +13,7 @@ import { parte } from "./config.js";
 import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas, totalAvulsas } from "./entradas.js";
 import { liquidoFonte } from "./extra.js";
 import { guardarPorSemana } from "../goals/modelo.js";
+import { camada, camadaDe } from "../goals/estrategia.js";
 
 // O plano começa em seed.inicio (primeiro pagamento depois de montar a carteira)
 
@@ -173,20 +174,11 @@ function baseItems(seed, state, payday) {
 }
 
 // Ordem de prioridade final, em camadas:
-// 0 vida (comida, gasolina, cachorros) · 1 atrasados · 2 contas e mínimos da semana (por data)
-// 2,5 futuras protegidas · 3 reservas · 3,5 objetivos (Guardar) · 4 pedidos
-// Planejamento unificado: objetivos só recebem o que sobra depois das obrigações;
-// entre eles, a ordem é a prioridade (a ordem em que o plano os adiciona).
+// Ordem de distribuição: definida pela estratégia (js/goals/estrategia.js).
+// Hoje: essenciais · atrasados · contas e mínimos · futuras · reservas · objetivos · pedidos.
 // O que sobra no fim vai para a dívida que mais custa (ataque).
-export const TIER_OBJETIVOS = 3.5;
-export function tier(i) {
-  if (i.grupo === "vida") return 0;
-  if (i.grupo === "colchao") return TIER_OBJETIVOS;
-  if (i.atrasado) return 1;
-  if (i.acao === "pagar") return 2;
-  if (i.grupo === "pedidos") return i.protegido ? 2.5 : 4;
-  return 3;
-}
+export const TIER_OBJETIVOS = camadaDe("objetivos");
+export const tier = (i) => camada(i);
 export function priorityOrder(items) {
   const t = (d) => (d ? d.getTime() : Infinity);
   return [...items].sort((a, b) =>

@@ -181,6 +181,14 @@ const mock = {
   async salvar(id, dados) { const d = mdb(); d.dados[id] = dados; mput(d); },
 };
 
+// Demo: volta os perfis fictícios ao estado inicial (só existe fora da produção)
+export function restaurarDemo() {
+  if (!ehDemo()) return false;
+  try {
+    Object.keys(localStorage).filter((k) => k === MK || k.startsWith("savia-wallet:")).forEach((k) => localStorage.removeItem(k));
+  } catch { /* nada */ }
+  return true;
+}
 export const usandoMock = ehDemo;
 export const configurado = () => ehDemo() || !!AMBIENTE.key;
 export const backend = ehDemo() ? mock : real;

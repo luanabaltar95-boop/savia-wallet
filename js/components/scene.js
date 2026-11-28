@@ -1,7 +1,12 @@
 // =========================================================
-// CENÁRIO DA JORNADA — paisagem em SVG que melhora com o progresso:
-// céu nublado e chuva → sol nascendo, morros verdes, casa iluminada,
-// flores em cada fase cumprida. Um cachorro anda pela trilha até a casa.
+// TRAJETÓRIA — componente visual reutilizável, sem regra financeira.
+// Recebe só: progresso (0–1, real, vindo do Goal Engine) e a lista de
+// etapas { ok, quando, frac? }. Serve para qualquer objetivo.
+//   céu nublado → sol, conforme o progresso
+//   marcas na trilha: alcançada (bandeira), atual (anel verde),
+//   futura com previsão (ponto), sem previsão (círculo tracejado)
+//   o mascote fica entre a última etapa alcançada e a atual,
+//   avançando pela fração real da etapa atual (frac), quando existe.
 // =========================================================
 
 const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
@@ -78,6 +83,7 @@ export function montarCena(root, fases) {
   const at = (t) => trail.getPointAtLength(L * t);
   const pos = (i) => (i + 1) / (n + 1);
 
+  const iAtual = fases.findIndex((f) => !f.ok);
   svg.querySelector("#marks").innerHTML = fases.map((f, i) => {
     const pt = at(pos(i));
     if (f.ok) {
@@ -86,11 +92,21 @@ export function montarCena(root, fases) {
         <path d="M0 -16 L11 -12 L0 -8Z" fill="#3c8a66"/>
         <circle cx="-6" cy="2" r="2.5" fill="#f2a7b8"/><circle cx="6" cy="3" r="2.5" fill="#f7d26a"/></g>`;
     }
+    if (i === iAtual) return `<g transform="translate(${pt.x} ${pt.y})"><circle r="5.5" fill="#ffffff" stroke="#388565" stroke-width="2.5"/></g>`;
+    if (!f.quando) return `<g transform="translate(${pt.x} ${pt.y})"><circle r="3.5" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-dasharray="2 2" opacity=".9"/></g>`;
     return `<g transform="translate(${pt.x} ${pt.y})"><circle r="3" fill="#ffffff" opacity=".85"/></g>`;
   }).join("");
 
+  // Mascote: entre a última etapa alcançada e a atual, pela fração real da atual
   const feitas = fases.filter((f) => f.ok).length;
-  const t = feitas >= n ? 0.985 : pos(feitas) - 0.5 / (n + 1);
+  let t;
+  if (!n || feitas >= n) t = n ? 0.985 : 0.02;
+  else {
+    const de = feitas === 0 ? 0.02 : pos(feitas - 1);
+    const ate = pos(feitas);
+    const frac = Math.max(0, Math.min(1, Number((fases[iAtual] || {}).frac) || 0));
+    t = de + (ate - de) * frac * 0.9;
+  }
   const d = at(Math.max(0.02, t));
   svg.querySelector("#dog").setAttribute("transform", `translate(${d.x} ${d.y - 9})`);
 }

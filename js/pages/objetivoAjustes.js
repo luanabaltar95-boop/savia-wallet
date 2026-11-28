@@ -17,8 +17,7 @@ const pct = (a) => `${Math.round(a.progresso * 100)}%`;
 export function objetivoResumo(ctx) {
   const ativos = todosObjetivos(ctx.state).filter((g) => g.status === "ativo");
   if (!ativos.length) return "definir";
-  const p = ativos.find((g) => g.principal) || ativos[0];
-  return `${esc(p.nome || tipo(p.tipo).label)}${ativos.length > 1 ? ` +${ativos.length - 1}` : ""}`;
+  return `${ativos.length} ${ativos.length === 1 ? "ativo" : "ativos"}`;
 }
 
 function linha(ctx, a, i, total) {
@@ -27,6 +26,7 @@ function linha(ctx, a, i, total) {
   const det = a.emBreve ? "em breve" : a.continuo ? `${a.etapas.filter((e) => e.ok).length} de ${a.etapas.length} em dia`
     : a.tipo !== "dividas" && a.valor && a.valor.alvo ? `${money(a.valor.atual)} de ${money(a.valor.alvo)} · ${pct(a)}` : a.etapas.length ? `etapa ${Math.min(a.etapas.filter((e) => e.ok).length + 1, a.etapas.length)} de ${a.etapas.length}` : "";
   if (ctx.obEdit === g.id) return formHtml(ctx, g);
+  const alcancado = !a.continuo && a.etapas.length > 0 && !a.atual;
   // Personalizado por etapas: marco cada etapa como feita aqui mesmo
   const manual = g.tipo === "personalizado" && !(g.alvo > 0);
   const etapas = a.etapas.length && (ctx.obVer === g.id || manual)
@@ -36,7 +36,7 @@ function linha(ctx, a, i, total) {
   return `<li class="ob-linha ${g.status !== "ativo" ? "pausado" : ""}">
     <div class="ob-cab">
       <span class="ob-ic" aria-hidden="true">${a.icone}</span>
-      <div class="ob-txt"><b>${esc(a.titulo)}${g.principal ? ` <span class="ob-badge">principal</span>` : ""}</b>
+      <div class="ob-txt"><b>${esc(a.titulo)}${g.principal ? ` <span class="ob-badge">principal</span>` : ""}${alcancado ? ` <span class="ob-badge ok">alcançado ✓</span>` : ""}</b>
         <small>${esc([g.status === "pausado" ? "pausado" : "", det].filter(Boolean).join(" · "))}</small></div>
       <button class="rc-menu" type="button" data-ob-menu="${g.id}" aria-label="Opções de ${esc(a.titulo)}">${ICONE.pontos}</button>
     </div>

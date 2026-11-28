@@ -5,7 +5,7 @@
 // =========================================================
 import { syncNote } from "../core/sync.js";
 import { MARCA } from "../config/marca.js";
-import { money, monthYear, dayLabel } from "../core/format.js";
+import { money, monthYear } from "../core/format.js";
 import { card, stats, esc } from "../components/ui.js";
 import { scene, montarCena } from "../components/scene.js";
 import { avaliar, caminho, registrarHistorico } from "../goals/engine.js";
@@ -26,40 +26,8 @@ const FRASES = [
   "Cheguei. Céu limpo.",
 ];
 
-// Carteira nova: os 5 passos de Ajustes
-const PASSOS = [
-  { id: "ciclo", titulo: "Meu pagamento", desc: "Quando recebo e quanto", feito: (s, st) => !!(st.config || {}).ciclo || (s.metas.meta > 0) },
-  { id: "contas", titulo: "Minhas contas", desc: "Fixas, da semana e em atraso", feito: (s) => s.mensais.length + s.semanais.length + s.pontuais.length > 0 },
-  { id: "cartoes", titulo: "Cartões", desc: "Saldo, mínimo, juros e vencimento", feito: (s) => s.cartoes.length > 0 },
-  { id: "dividas", titulo: "Dívidas", desc: "Empréstimos e o que não é cartão", feito: (s) => s.outras.length > 0 },
-  { id: "financiamentos", titulo: "Financiamentos", desc: "Carro, Affirm, parcelados", feito: (s) => s.parcelas.length > 0 },
-];
+// Carteira sem nada cadastrado (a Hoje usa para o estado vazio)
 export const carteiraVazia = (s) => !s.cartoes.length && !s.mensais.length && !s.semanais.length && !s.outras.length && !s.parcelas.length && !s.pontuais.length;
-
-function boasVindas(root, ctx) {
-  const { seed, state } = ctx;
-  const lista = PASSOS.map((p, i) => {
-    const ok = p.feito(seed, state);
-    return `<li class="fase ${ok ? "ok" : i === 0 ? "atual" : ""}">
-      <span class="fase-n">${ok ? "✓" : i + 1}</span>
-      <a href="#ajustes" data-passo="${p.id}"><div class="name">${p.titulo}</div><div class="hint">${p.desc}</div></a>
-    </li>`;
-  }).join("");
-  root.innerHTML = `
-    <header class="page-head home-head">
-      <div class="brand">
-        <img class="brand-logo" src="icons/icon-192.png" alt="" width="44" height="44">
-        <div><p class="eyebrow">${MARCA}</p><h1>Minha carteira</h1></div>
-      </div>
-    </header>
-    <section class="card scene-card">
-      ${scene(0)}
-      <div class="scene-foot"><p class="scene-msg">Vou montar minha carteira em 5 passos. Depois ela me diz, a cada pagamento, o que pagar, o que guardar e quando fico livre das dívidas.</p></div>
-    </section>
-    ${card({ title: "Montar minha carteira", body: `<ol class="trilha">${lista}</ol><a class="btn primary" href="#ajustes" data-passo="ciclo">Começar</a>` })}
-    ${syncNote(ctx)}`;
-  root.querySelectorAll("[data-passo]").forEach((a) => a.addEventListener("click", () => { ctx.openSec = a.dataset.passo; }));
-}
 
 // Sem objetivos ainda: convite para escolher
 function semObjetivos(root, ctx) {
@@ -82,15 +50,15 @@ function dinheiroSemana(seed, state) {
   if (!Object.keys((state.config || {}).entradas || {}).length && !Object.keys(state.renda || {}).length) return "";
   const r = recursos(seed, state, semanaAberta(state));
   const linha = (label, v, f, cls = "") => `<li class="${cls}"><span>${esc(label)}</span><b class="num">${money(v, true)}</b>${f ? fonteTag(f) : ""}</li>`;
-  return `<details class="card recursos-card"><summary class="card-head"><h2>Dinheiro desta semana</h2><span class="total num">${money(r.potencialObjetivos, true)} para objetivos</span></summary>
+  return `<details class="card recursos-card"><summary class="card-head"><h2>Dinheiro deste período</h2><span class="total num">${money(r.potencialObjetivos, true)} para objetivos</span></summary>
     <ul class="recursos">
       ${linha("Entra", r.entra, r.entraFonte, "forte")}
-      ${r.baldes.filter((b) => b.id !== "objetivos" && b.id !== "pedidos" && b.precisa > 0).map((b) => linha(`− ${b.label}`, b.precisa, "")).join("")}
+      ${r.baldes.filter((b) => !["objetivos", "pedidos"].includes(b.id) && b.precisa > 0).map((b) => linha(`− ${b.label}`, b.precisa, "")).join("")}
       ${linha(r.faltaParaObrigacoes > 0 ? "Falta para as contas" : "= Sobra para objetivos", r.faltaParaObrigacoes || r.potencialObjetivos, "", "forte")}
       ${r.objetivos.map((o) => linha(`− ${o.nome}${o.recebe < o.pede - 0.005 ? ` (pede ${money(o.pede, true)})` : ""}`, o.recebe, "")).join("")}
       ${r.baldes.find((b) => b.id === "pedidos").precisa > 0 ? linha("− Pedidos e ocasiões", r.baldes.find((b) => b.id === "pedidos").coberto, "") : ""}
       ${linha("= Livre (vai para a dívida que mais custa)", r.livre, "projecao", "forte")}
-      ${linha("Já paguei nesta semana", r.jaPago, "confirmado", "sub")}
+      ${linha("Já paguei neste período", r.jaPago, "confirmado", "sub")}
       ${r.saldoFonte !== "pendente" ? linha("Nas minhas contas agora", r.saldo, r.saldoFonte, "sub") : ""}
     </ul></details>`;
 }
@@ -99,7 +67,6 @@ const rotuloFase = (i, n) => `Etapa ${Math.min(i + 1, n)} de ${n}`;
 
 export function renderHome(root, ctx) {
   const { seed, state } = ctx;
-  if (carteiraVazia(seed) && !avaliar(seed, state).length) return boasVindas(root, ctx);
   // Carteira antiga: grava os objetivos derivados (sem apagar nada) e
   // tira a foto da semana para o histórico (previsão melhorou/piorou)
   const migrou = migrarSePreciso(state);
@@ -151,7 +118,7 @@ export function renderHome(root, ctx) {
       ${scene(p)}
       <div class="scene-foot">
         <p class="scene-msg">${frase}</p>
-        <div class="track" role="progressbar" aria-valuenow="${Math.round(p * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${Math.max(2, p * 100)}%"></div></div>
+        <div class="track" role="progressbar" aria-valuenow="${Math.round(p * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${p * 100}%"></div></div>
         <p class="hint">${esc(rodape)}</p>
       </div>
     </section>
@@ -160,7 +127,7 @@ export function renderHome(root, ctx) {
       ${agora}
       ${dinheiro}
       ${recHtml}
-      <a class="btn primary" href="#hoje">Ver a lista desta sexta</a>
+      <a class="btn primary" href="#hoje">Ver meu plano</a>
     </section>
 
     ${dinheiroSemana(seed, state)}

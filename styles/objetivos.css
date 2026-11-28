@@ -74,3 +74,8 @@ button.cam-n { border: 0; cursor: pointer; }
 .recursos li.sub { font-size: var(--t-xs); color: var(--ink-3); }
 .recursos-card > summary h2 { white-space: nowrap; }
 .recursos-card:not([open]) { padding-bottom: var(--s4); }
+.cam-etapa.sem-data .cam-n { background: transparent; border: 1.5px dashed var(--ink-3); }
+.cam-etapa.futura .cam-n { background: var(--surface-2); }
+.ob-badge.ok { background: var(--green-soft); color: var(--green); }
+.recursos-card > summary { display: grid; grid-template-columns: 1fr; gap: 2px; }
+.recursos-card > summary .total { justify-self: start; color: var(--green); font-weight: 600; }

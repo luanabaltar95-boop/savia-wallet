@@ -6,7 +6,7 @@
 import { field } from "../components/ui.js";
 import { MARCA } from "../config/marca.js";
 import { limparUsuario, usuarioValido } from "../core/auth.js";
-import { backend, configurado } from "../core/backend.js";
+import { backend, configurado, restaurarDemo } from "../core/backend.js";
 import { ehDemo } from "../config/ambiente.js";
 import { SENHA_DEMO } from "../demo/perfis.js";
 import { abrirCarteira } from "../core/sync.js";
@@ -40,7 +40,7 @@ export function renderLogin(root, ctx) {
       ${LOGO}
       <h1>${TITULO[modo]}</h1>
       <p class="hint">${MARCA}</p>
-      ${ehDemo() ? `<p class="banner calm demo-aviso">Ambiente de teste com dados fictícios. Entre como <b>@ana</b>, <b>@bruno</b>, <b>@carla</b> ou <b>@novo</b> · senha <b>${SENHA_DEMO}</b></p>` : ""}
+      ${ehDemo() ? `<p class="banner calm demo-aviso">Ambiente de teste com dados fictícios. Entre como <b>@ana</b>, <b>@bruno</b>, <b>@carla</b>, <b>@dani</b>, <b>@eva</b> ou <b>@novo</b> · senha <b>${SENHA_DEMO}</b> · <button class="link" type="button" id="demo-restaurar">restaurar dados de teste</button></p>` : ""}
       <form class="card" id="login" novalidate autocomplete="on">
         <div class="fields stack">${campos}</div>
         <p class="preview" id="lg-msg" aria-live="polite"></p>
@@ -54,6 +54,8 @@ export function renderLogin(root, ctx) {
   root.querySelectorAll("[data-modo]").forEach((b) => (b.onclick = () => { ctx.loginModo = b.dataset.modo; ctx.rerender(); }));
 
   const form = root.querySelector("#login");
+  const rest = root.querySelector("#demo-restaurar");
+  if (rest) rest.onclick = () => { restaurarDemo(); location.reload(); };
   const btn = form.querySelector("button[type=submit]");
   const msg = (t, ok) => { root.querySelector("#lg-msg").innerHTML = `<span class="status ${ok ? "ok" : "warn"}">${t}</span>`; };
   form.addEventListener("submit", async (e) => {

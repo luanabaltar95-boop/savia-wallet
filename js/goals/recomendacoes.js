@@ -30,7 +30,7 @@ export function recomendacoes(seed, state, avaliados, foco = null, hoje = new Da
   if (Object.keys((state.config || {}).entradas || {}).length || Object.keys(state.renda || {}).length) {
     const r = recursos(seed, state, semanaAberta(state, hoje));
     if (r.faltaParaObrigacoes > 0) {
-      out.push({ id: "deficit", tipo: r.entraFonte, texto: `Faltam ${money(r.faltaParaObrigacoes, true)} para as contas desta semana — objetivos esperam`, href: "#hoje" });
+      out.push({ id: "deficit", tipo: r.entraFonte, texto: `Faltam ${money(r.faltaParaObrigacoes, true)} para as contas deste período — objetivos esperam`, href: "#hoje" });
     } else {
       out.push({ id: "potencial", tipo: r.entraFonte, texto: `Depois das contas sobram ${money(r.potencialObjetivos, true)} para objetivos`, href: "#hoje" });
       if (r.objetivosPedem - r.objetivosRecebem > 0.5) {
@@ -56,6 +56,7 @@ export function recomendacoes(seed, state, avaliados, foco = null, hoje = new Da
     if (a.precisaSemana && !a.noPrazo) {
       out.push({ id: `ritmo-${a.id}`, tipo: "projecao", texto: `${a.titulo}: para chegar até ${data(a.ate)} preciso de ${money(a.precisaSemana, true)}/semana (hoje ${money(a.semanal, true)})`, sec: "objetivo" });
     }
+    if (a.valor && a.valor.contaMista) out.push({ id: `mista-${a.id}`, tipo: "estimativa", texto: `${a.titulo}: guarda na conta corrente (${a.valor.conta}); o progresso pode incluir dinheiro das contas. Melhor uma conta só para guardar`, sec: "objetivo" });
     const t = tendencia(a, semana);
     if (t) out.push({ id: `tend-${a.id}`, tipo: "projecao", texto: `${a.titulo}: previsão ${t.melhorou ? "adiantou" : "atrasou"} ${t.semanas} ${t.semanas === 1 ? "semana" : "semanas"}` });
   });
@@ -68,7 +69,11 @@ export function recomendacoes(seed, state, avaliados, foco = null, hoje = new Da
     out.push({ id: `fut-${p.id}`, tipo: "projecao", texto: `${p.nome}: ${money(totalDe(p), true)} até ${data(p.vence)}`, href: "#hoje" });
   });
 
-  // 6. O que falta informar (uma vez cada)
+  // 6. Contas em outra moeda sem cotação: o valor não está convertido
+  const semCot = [...seed.semanais, ...seed.mensais, ...(seed.parcelas || []), ...seed.pontuais].filter((i) => i.semCotacao);
+  if (semCot.length) out.push({ id: "cotacao", tipo: "pendente", texto: `Falta a cotação de ${[...new Set(semCot.map((i) => i.moeda))].join(", ")} (${semCot.length} contas sem conversão)`, href: "#cambio" });
+
+  // 7. O que falta informar (uma vez cada)
   const vistos = new Set();
   emVista.flatMap((a) => a.faltando).forEach((f) => {
     if (vistos.has(f.id)) return;

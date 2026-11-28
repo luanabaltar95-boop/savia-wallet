@@ -14,29 +14,15 @@
 // =========================================================
 import { toISO } from "../core/calendar.js";
 import { buildWeek, allocate, rendaEfetiva, tier, TIER_OBJETIVOS } from "../core/plan.js";
+import { CATEGORIAS, categoria, estrategiaAtual } from "./estrategia.js";
 import { contasCorrentes } from "../core/caixa.js";
 import { saldoAtual, base as baseSaldo } from "../core/saldo.js";
 
 const r2 = (v) => Math.round(v * 100) / 100;
 const n = (v) => Number(v) || 0;
 
-function balde(i) {
-  if (i.grupo === "colchao") return "objetivos";
-  if (i.grupo === "vida") return "essenciais";
-  if (i.grupo === "minimos") return "minimos";
-  if (i.atrasado || i.acao === "pagar") return "obrigacoes";
-  if (i.grupo === "pedidos") return i.protegido ? "futuras" : "pedidos";
-  return "reservas";
-}
-export const BALDES = [
-  { id: "essenciais", label: "Despesas essenciais" },
-  { id: "obrigacoes", label: "Contas e atrasados" },
-  { id: "minimos", label: "Pagamentos mínimos" },
-  { id: "futuras", label: "Futuras com data" },
-  { id: "reservas", label: "Reservas para contas que vêm" },
-  { id: "objetivos", label: "Para os objetivos" },
-  { id: "pedidos", label: "Pedidos e ocasiões" },
-];
+// Baldes = categorias da estratégia (mesma classificação do plano)
+export const BALDES = Object.entries(CATEGORIAS).map(([id, label]) => ({ id, label }));
 
 export function recursos(seed, state, payday) {
   const iso = toISO(payday);
@@ -44,7 +30,7 @@ export function recursos(seed, state, payday) {
   const w = buildWeek(seed, state, payday);
   const { cover, ataque } = allocate(w, ef.valor);
   const soma = (f, campo) => r2(w.ordem.filter(f).reduce((a, i) => a + (campo === "cover" ? n(cover[i.id]) : n(i.valor)), 0));
-  const baldes = BALDES.map((b) => ({ ...b, precisa: soma((i) => balde(i) === b.id), coberto: soma((i) => balde(i) === b.id, "cover") }));
+  const baldes = BALDES.map((b) => ({ ...b, precisa: soma((i) => categoria(i) === b.id), coberto: soma((i) => categoria(i) === b.id, "cover") }));
   const antesDosObjetivos = soma((i) => tier(i) < TIER_OBJETIVOS);
   const objetivos = w.ordem.filter((i) => i.grupo === "colchao").map((i) => ({ id: i.id, objetivo: i.objetivo, nome: i.nome, pede: r2(i.valor), recebe: r2(n(cover[i.id])) }));
   // Já pago nesta semana (confirmado)
@@ -54,7 +40,7 @@ export function recursos(seed, state, payday) {
   const conferidas = contas.filter((b) => baseSaldo(state, b));
   const saldo = r2(conferidas.reduce((a, b) => a + n(saldoAtual(state, b)), 0));
   return {
-    iso,
+    iso, estrategia: estrategiaAtual().id,
     entra: r2(ef.valor), entraFonte: ef.previsao ? "projecao" : "confirmado",
     saldo, saldoFonte: !contas.length ? "pendente" : conferidas.length === contas.length ? "confirmado" : "estimativa",
     jaPago,

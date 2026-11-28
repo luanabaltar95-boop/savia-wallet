@@ -45,8 +45,10 @@ export function converter(state, valorMoeda, moeda) {
 export function converterItens(state, lista) {
   return (lista || []).map((it) => {
     if (!emOutraMoeda(state, it)) return it;
-    const v = converter(state, it.valorMoeda, it.moeda);
-    return v == null ? it : { ...it, valor: v };
+    const c = cotacao(state, it.moeda);
+    // Sem cotação: o valor fica como estava e o item é marcado (o app avisa que falta dado)
+    if (!c) return { ...it, semCotacao: true };
+    return { ...it, valor: r2(Number(it.valorMoeda) / c.taxa), cotacao: { taxa: c.taxa, fonte: c.fonte, em: c.em || null } };
   });
 }
 

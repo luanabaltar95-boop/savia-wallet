@@ -41,7 +41,7 @@ const main = document.getElementById("main");
 if (AMBIENTE.nome !== "production") {
   const f = document.createElement("div");
   f.className = "faixa-ambiente";
-  f.textContent = AMBIENTE.nome === "demo" ? "Teste · dados fictícios" : "Preview · banco de teste";
+  f.textContent = AMBIENTE.nome === "demo" ? `Teste · dados fictícios${AMBIENTE.semApi ? " · sem /api" : ""}` : "Preview · banco de teste";
   document.body.prepend(f);
   document.body.classList.add("com-faixa");
 }

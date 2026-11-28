@@ -114,10 +114,16 @@ t("moedas: checklist acompanha moeda principal, contas e cotação", () => {
   st.config = { moeda: "USD", mensais: [{ id: "m", nome: "Aluguel mãe", valor: 250, valorMoeda: 1250, moeda: "BRL", dia: 11 }] };
   salvarObjetivos(st, [{ tipo: "moedas" }]);
   let [a] = avaliar(getSeed(st), st, HOJE);
-  eq(a.etapas.map((e) => e.ok), [true, true, false], "falta cotação");
-  st.cotacoes = { BRL: { taxa: 5, em: HOJE.getTime() } };
+  eq(a.etapas.map((e) => e.ok), [true, true, false, false], "falta cotação");
+  sim(getSeed(st).mensais[0].semCotacao, "conta sem cotação fica marcada");
+  st.cotacoes = { BRL: { taxa: 5, fonte: "manual", em: HOJE.getTime() } };
   [a] = avaliar(getSeed(st), st, HOJE);
-  eq(a.etapas.map((e) => e.ok), [true, true, true]);
+  eq(a.etapas.map((e) => e.ok), [true, true, true, true]);
+  sim(a.etapas[2].desc.includes("BRL: manual em"), "origem e data da cotação: " + a.etapas[2].desc);
+  eq(getSeed(st).mensais[0].valor, 250, "convertido pela cotação (1250 / 5)");
+  st.cotacoes.BRL.em = HOJE.getTime() - 40 * 86400000;
+  [a] = avaliar(getSeed(st), st, HOJE);
+  eq(a.etapas[3].ok, false, "cotação de 40 dias é antiga");
   eq(a.continuo, true);
 });
 
@@ -207,6 +213,57 @@ t("contínuo: progresso é a lista de cuidados, sem valor nem previsão", () => 
   eq([a.continuo, a.valor, a.previsao], [true, undefined, null]);
   sim(a.etapas.length === 6 && a.etapas.every((e) => typeof e.ok === "boolean"));
   eq(caminho([a]).etapas.length, 0, "contínuo não entra no caminho com fim");
+});
+
+// ---------- Jornada: etapas vêm dos dados ----------
+t("jornada: número de etapas varia com os dados e nova dívida entra sozinha", () => {
+  const st = vazio();
+  st.config = { cartoes: [{ id: "c1", nome: "C1", saldo: 500, apr: 20, minimo: 20, dia: 5 }], alvos: ["c1"] };
+  salvarObjetivos(st, [{ tipo: "dividas" }]);
+  const n1 = avaliar(getSeed(st), st, HOJE)[0].etapas.length;
+  st.config.cartoes = [...st.config.cartoes, { id: "c2", nome: "C2", saldo: 300, apr: 30, minimo: 15, dia: 9 }];
+  const et = avaliar(getSeed(st), st, HOJE)[0].etapas;
+  eq(et.length, n1 + 1, "um cartão novo = uma etapa nova");
+  sim(et.some((e) => e.id === "c2"), "C2 aparece mesmo sem estar em alvos");
+});
+
+t("jornada: etapa concluída é reconhecida pelo pagamento marcado", () => {
+  const st = vazio();
+  st.config = { pontuais: [{ id: "p1", nome: "Atrasada", valor: 50, semana: "2026-11-20", atrasado: true }], cartoes: [{ id: "c", nome: "C", saldo: 100, apr: 10, minimo: 10, dia: 3 }] };
+  salvarObjetivos(st, [{ tipo: "dividas" }]);
+  eq(avaliar(getSeed(st), st, HOJE)[0].etapas[0].ok, false);
+  st.pagos = { "2026-11-27": { p1: { valor: 50, data: "2026-11-27" } } };
+  eq(avaliar(getSeed(st), st, HOJE)[0].etapas[0].ok, true, "pagamento marcado conclui a etapa");
+});
+
+t("jornada: fração real da etapa atual (sem progresso inventado)", () => {
+  const st = vazio();
+  st.bancos = [{ id: "pp", banco: "P", tipo: "savings", saldo: 300, saldoEm: HOJE.getTime() - 1000 }];
+  salvarObjetivos(st, [{ tipo: "compra", alvo: 1000, conta: "pp", semanal: 50 }]);
+  const [a] = avaliar(getSeed(st), st, HOJE);
+  eq(a.progresso, 0.3);
+  eq(a.atual.id, "p50"); eq(Math.round(a.atual.frac * 100), 20, "300 entre 250 e 500 = 20%");
+  st.bancos = [];
+  const [b] = avaliar(getSeed(st), st, HOJE);
+  eq([b.progresso, b.valor.fonte], [0, "pendente"], "sem saldo conferido não inventa progresso");
+});
+
+t("conta corrente como conta do objetivo: marcado como estimativa", () => {
+  const st = vazio();
+  st.bancos = [{ id: "cc", banco: "Corrente", tipo: "checking", saldo: 800, saldoEm: HOJE.getTime() - 1000 }];
+  salvarObjetivos(st, [{ tipo: "compra", alvo: 1000, conta: "cc", semanal: 50 }]);
+  const [a] = avaliar(getSeed(st), st, HOJE);
+  eq(a.valor.fonte, "estimativa");
+  sim(recomendacoes(getSeed(st), st, [a], null, HOJE).some((r) => r.id === `mista-${a.id}`));
+});
+
+t("migração: carteira que já tem objetivos novos não é migrada de novo", () => {
+  const st = vazio();
+  st.config = { objetivos: [{ id: "x", tipo: "economizar", alvo: 100, prioridade: 1, principal: true }], objetivo: { tipo: "reserva", alvo: 999 }, colchaoSemanal: 10, cartoes: [{ id: "c", nome: "C", saldo: 1, dia: 1 }] };
+  const antes = JSON.stringify(st);
+  sim(!migrarSePreciso(st), "não migra");
+  eq(JSON.stringify(st), antes, "nada muda");
+  eq(objetivos(st).map((g) => g.id), ["x"], "sem objetivos duplicados");
 });
 
 console.log(`\n${ok} ok, ${falhou} falharam`);

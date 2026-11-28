@@ -14,6 +14,7 @@ import { toISO, fromISO, addDays } from "../core/calendar.js";
 import { saldoAtual, base as baseSaldo } from "../core/saldo.js";
 import { poupanca } from "../core/destino.js";
 import { parte } from "../core/config.js";
+import { cotacao, moedaBase } from "../core/cambio.js";
 import { jornada, feito } from "../core/jornada.js";
 import { objetivos } from "./modelo.js";
 import { tipo, ehDinheiro } from "./tipos.js";
@@ -38,7 +39,12 @@ export function contaDoObjetivo(state, g) {
 
 // Etapas por marcos de valor (25/50/75/100% ou meses de contas)
 function marcos(lista, atual) {
-  return lista.map((m) => ({ id: m.id, titulo: m.titulo, desc: m.desc, ok: atual >= m.valor - 0.005, quando: null, valor: m.valor }));
+  // frac = quanto da etapa já foi percorrido (real, para o desenho)
+  return lista.map((m, i) => {
+    const de = i ? lista[i - 1].valor : 0;
+    return { id: m.id, titulo: m.titulo, desc: m.desc, ok: atual >= m.valor - 0.005, quando: null, valor: m.valor,
+      frac: m.valor > de ? Math.max(0, Math.min(1, (atual - de) / (m.valor - de))) : 0 };
+  });
 }
 
 function previsaoNoRitmo(falta, semanal, hoje) {
@@ -74,6 +80,9 @@ function avaliarDinheiro(seed, state, g, disponivel, hoje) {
     const chave = conta.id;
     const s = baseSaldo(state, conta) ? Math.max(0, n(saldoAtual(state, conta))) : 0;
     if (!baseSaldo(state, conta)) fonteAtual = "pendente";
+    // Conta corrente: o saldo também é o dinheiro das contas do dia a dia.
+    // Contar tudo como do objetivo seria contar o mesmo dinheiro duas vezes.
+    else if (conta.tipo && conta.tipo !== "savings") fonteAtual = "estimativa";
     if (disponivel[chave] == null) disponivel[chave] = s;
     atual = r2(Math.min(disponivel[chave], alvo > 0 ? alvo : disponivel[chave]));
     disponivel[chave] = r2(disponivel[chave] - atual);
@@ -98,7 +107,7 @@ function avaliarDinheiro(seed, state, g, disponivel, hoje) {
   etapas.forEach((e) => { if (!e.ok && g.semanal > 0) e.quando = previsaoNoRitmo(Math.max(0, e.valor - atual), g.semanal, hoje); });
   return {
     etapas, progresso: alvo > 0 ? Math.max(0, Math.min(1, atual / alvo)) : 0,
-    valor: { atual, alvo, falta, fonte: fonteAtual, fonteAlvo, conta: conta.banco },
+    valor: { atual, alvo, falta, fonte: fonteAtual, fonteAlvo, conta: conta.banco, contaMista: !!(conta.tipo && conta.tipo !== "savings") },
     previsao, precisaSemana, noPrazo: !g.ate || !previsao || previsao <= g.ate,
   };
 }
@@ -120,19 +129,24 @@ function avaliarOrganizar(seed, state, hoje) {
     { id: "contas", titulo: "Contas fixas cadastradas", desc: `${seed.mensais.length + seed.semanais.length} contas`, ok: seed.mensais.length + seed.semanais.length > 0 },
     { id: "conferido", titulo: "Saldo conferido nas últimas 2 semanas", desc: "Comparar com o banco", ok: !!conferido },
     { id: "atrasados", titulo: "Nenhuma conta atrasada", desc: atrasados.length ? `${atrasados.length} em atraso` : "Tudo em dia", ok: !atrasados.length },
-    { id: "fechada", titulo: "Semana fechada", desc: "Fechar a semana no fim do ciclo", ok: fechadas.some((d) => hoje - fromISO(d) < 15 * 86400000) },
+    { id: "fechada", titulo: "Período fechado", desc: "Fechar o período no fim do ciclo", ok: fechadas.some((d) => hoje - fromISO(d) < 15 * 86400000) },
   ]);
 }
 
-function avaliarMoedas(seed, state) {
-  const c = state.config || {};
-  const outras = (state.bancos || []).filter((b) => b.moeda && b.moeda !== (c.moeda || "USD"));
-  const itens = ["semanais", "mensais", "parcelas", "pontuais"].flatMap((k) => parte(state, k)).filter((it) => it.moeda && it.moeda !== (c.moeda || "USD"));
-  const semCotacao = [...new Set(itens.map((i) => i.moeda))].filter((m) => !(state.cotacoes || {})[m]);
+function avaliarMoedas(seed, state, hoje) {
+  const base = moedaBase(state);
+  const itens = ["semanais", "mensais", "parcelas", "pontuais"].flatMap((k) => parte(state, k)).filter((it) => it.moeda && it.moeda !== base && n(it.valorMoeda) > 0);
+  const moedas = [...new Set(itens.map((i) => i.moeda))];
+  // Cada cotação precisa ter origem (pagamento, manual, mercado) e data
+  const info = moedas.map((m) => ({ m, c: cotacao(state, m) }));
+  const sem = info.filter((x) => !x.c).map((x) => x.m);
+  const velhas = info.filter((x) => x.c && x.c.em && hoje - x.c.em > 30 * 86400000).map((x) => x.m);
+  const desc = info.filter((x) => x.c).map((x) => `${x.m}: ${x.c.fonte}${x.c.em ? ` em ${new Date(x.c.em).toLocaleDateString("pt-BR")}` : ""}`).join(" · ");
   return checklist([
-    { id: "base", titulo: "Moeda principal definida", desc: c.moeda || "Não definida", ok: !!c.moeda },
-    { id: "contas", titulo: "Contas em outra moeda", desc: itens.length ? `${itens.length} contas` : "Nenhuma cadastrada", ok: itens.length > 0 || outras.length > 0 },
-    { id: "cotacao", titulo: "Cotação de cada moeda", desc: semCotacao.length ? `Falta: ${semCotacao.join(", ")}` : "Em dia", ok: !semCotacao.length && itens.length > 0 },
+    { id: "base", titulo: "Moeda principal definida", desc: (state.config || {}).moeda || "Não definida (usando USD)", ok: !!(state.config || {}).moeda },
+    { id: "contas", titulo: "Contas em outra moeda cadastradas", desc: itens.length ? `${itens.length} contas · ${moedas.join(", ")}` : "Nenhuma ainda", ok: itens.length > 0 },
+    { id: "cotacao", titulo: "Cotação de cada moeda, com origem e data", desc: sem.length ? `Falta: ${sem.join(", ")}` : desc || "—", ok: itens.length > 0 && !sem.length },
+    { id: "recente", titulo: "Cotações do último mês", desc: velhas.length ? `Antigas: ${velhas.join(", ")}` : "Em dia", ok: itens.length > 0 && !sem.length && !velhas.length },
   ]);
 }
 
@@ -157,7 +171,7 @@ export function avaliar(seed, state, hoje = new Date()) {
     let r;
     if (g.tipo === "dividas") r = avaliarDividas(seed, state);
     else if (g.tipo === "organizar") r = avaliarOrganizar(seed, state, hoje);
-    else if (g.tipo === "moedas") r = avaliarMoedas(seed, state);
+    else if (g.tipo === "moedas") r = avaliarMoedas(seed, state, hoje);
     else if (g.tipo === "familia") r = avaliarFamilia(seed, state);
     else if (g.tipo === "documentos") r = { etapas: [], progresso: 0, previsao: null };
     else if (ehDinheiro(g) || g.tipo === "reserva") r = avaliarDinheiro(seed, state, g, disponivel, hoje);
