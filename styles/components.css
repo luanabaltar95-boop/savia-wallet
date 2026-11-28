@@ -688,3 +688,20 @@ details.cats .sub-head .total { margin-left: auto; }
 .nova-cat .save-bar { margin-top: var(--s2); }
 .aba-corpo > .sub { border-top: 0; padding-top: 0; margin-top: 0; }
 .aba-corpo > .sub > .cat-grupo:first-child { margin-top: 0; }
+
+/* Meu objetivo: o caminho em etapas */
+.caminho { display: grid; gap: var(--s3); }
+.cam-lista { list-style: none; margin: 0; padding: 0; display: grid; }
+.cam-etapa { display: grid; grid-template-columns: 28px 1fr; gap: var(--s2); align-items: center; padding: 8px 0; border-top: 1px solid var(--line); }
+.cam-lista > .cam-etapa:first-child { border-top: 0; }
+.cam-n { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 50%; background: var(--surface-2); color: var(--ink-3); font-size: 12px; font-weight: 700; }
+.cam-etapa.ok .cam-n { background: var(--green-soft); color: var(--green); }
+.cam-etapa.atual .cam-n { background: var(--green); color: #fff; }
+.cam-txt { display: grid; min-width: 0; line-height: 1.25; }
+.cam-txt b { font-size: var(--t-sm); }
+.cam-txt small { font-size: var(--t-xs); color: var(--ink-3); }
+.cam-etapa.ok .cam-txt b { color: var(--ink-3); text-decoration: line-through; }
+.cam-juntar { display: grid; gap: var(--s3); padding-top: var(--s2); border-top: 2px solid var(--line); }
+.cam-juntar > .cam-etapa { border-top: 0; padding-top: 0; }
+.cam-mais > summary { list-style: none; padding: 8px 0; cursor: pointer; }
+.cam-mais > summary::-webkit-details-marker { display: none; }

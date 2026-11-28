@@ -112,14 +112,14 @@ export function renderHome(root, ctx) {
       </div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
-    ${objetivoCard(ctx)}
+    ${objetivoCard({ ...ctx, naJornada: true })}
 
     <section class="card scene-card">
       ${scene(j.progresso)}
       <div class="scene-foot">
         <p class="scene-msg">${frase}</p>
         <div class="track" role="progressbar" aria-valuenow="${Math.round(j.progresso * 100)}" aria-valuemin="0" aria-valuemax="100"><div class="fill" style="width:${Math.max(2, j.progresso * 100)}%"></div></div>
-        <p class="hint">${Math.round(j.progresso * 100)}% do caminho até ficar livre das dívidas</p>
+        <p class="hint">${Math.round(j.progresso * 100)}% do meu caminho</p>
       </div>
     </section>
 

@@ -11,6 +11,8 @@ import { card, esc } from "./ui.js";
 
 export function objetivoCard(ctx) {
   const p = progresso(ctx.seed, ctx.state);
+  // Na jornada, dívidas já aparecem na trilha: o card é só da etapa juntar
+  if (ctx.naJornada && p.tipo === "dividas") return "";
   if (!p.alvo && !p.semanal) {
     return card({ title: "Meu objetivo", body: `<p class="hint">Para onde eu quero levar meu dinheiro? Uma reserva, uma viagem, sair das dívidas…</p><a class="btn primary" href="#ajustes" data-obj-abrir>Definir meu objetivo</a>` });
   }
