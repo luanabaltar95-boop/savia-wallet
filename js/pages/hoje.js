@@ -13,11 +13,12 @@ import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
 import { money, shortDate } from "../core/format.js";
-import { card, field, select, pisoBar, payRow, stats, segmented, esc, toast } from "../components/ui.js";
+import { card, field, select, planoRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
 import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas, totalAvulsas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
-import { entradasLinhas, bindEntradasHoje, avulsasHtml } from "./entradasHoje.js";
+import { entradasLinhas, bindEntradasHoje, avulsasHtml, entradasSheet, linhaExtra } from "./entradasHoje.js";
+import { ICONE } from "../components/icones.js";
 import { ativo } from "../core/modulos.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
@@ -83,11 +84,15 @@ export function renderHoje(root, ctx) {
   // por conta corrente; "Ajustar com o banco" acerta taxas e câmbio
   const cx = caixaDaSemana(state, iso, efetiva.valor, extraFeito);
 
-  const saldoSemana = stats([
-    { label: "Entra", valor: money(cx.total.entra, true) },
-    { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste, true) },
-    { label: "Disponível", valor: money(cx.total.disponivel, true) },
-  ]);
+  // Ajuste com o banco: perdi (taxas) = saída; tinha a mais = entrada. Nunca "saída negativa".
+  const entradasTot = cx.total.entra + Math.max(0, -cx.total.ajuste);
+  const saidasTot = cx.total.paguei + Math.max(0, cx.total.ajuste);
+  const disponivel = entradasTot - saidasTot;
+  const resumoSemana = `<section class="card resumo-sem" aria-label="Resumo da semana">
+      <div class="rs-disp"><span class="rs-lbl">Disponível</span><b class="num ${disponivel < 0 ? "terra" : "verde"}">${money(disponivel, true)}</b></div>
+      <div class="rs-mini"><span class="rs-lbl">Entradas</span><b class="num verde">${money(entradasTot, true)}</b></div>
+      <div class="rs-mini"><span class="rs-lbl">Saídas</span><b class="num terra">${saidasTot ? "−" : ""}${money(saidasTot, true)}</b></div>
+    </section>`;
 
   // Período fechado: só o resumo do que paguei; o que faltou já está no próximo
   const PER = { semanal: "semana", quinzenal: "quinzena", mensal: "mês" }[getCiclo().tipo] || "período";
@@ -120,14 +125,14 @@ export function renderHoje(root, ctx) {
     return;
   }
 
-  const listaSexta = card({
-    title: "Plano de pagamento",
-    hint: "Pago nesta ordem e marco cada uma.",
-    body: `<div class="disp">${saldoSemana}</div><ul class="missions plano">${fazer.map((i, k) => {
-      const info = pagamento(state, iso, i.id);
-      return payRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: i.grupo === "colchao" ? contaDestino(state).banco : vaiParaPoupanca(i, payday) ? pp.banco : "" });
-    }).join("")}</ul>`,
-  });
+  const nPagos = fazer.filter((i) => pagos[i.id]).length;
+  const listaSexta = `<section class="card plano-card">
+      <div class="card-head"><h2>Plano de pagamento</h2><span class="total">${nPagos}/${fazer.length} pagos</span></div>
+      ${fazer.length ? `<ul class="pl-lista">${fazer.map((i, k) => {
+        const info = pagamento(state, iso, i.id);
+        return planoRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: i.grupo === "colchao" ? contaDestino(state).banco : vaiParaPoupanca(i, payday) ? pp.banco : "" });
+      }).join("")}</ul>` : `<p class="hint">Nada para pagar com o que entra agora.</p>`}
+    </section>`;
 
   root.innerHTML = `
     ${weekNav(payday, "Pagamentos", null, atrasados.length
@@ -140,20 +145,20 @@ export function renderHoje(root, ctx) {
       
     </div>` : ""}
 
-    ${usaEntradas(state, iso) ? card({
-      title: "Quanto vai entrar",
-      body: `<div class="big">${money(renda)}</div>
-        ${ent.html}
-        ${avulsasHtml(ctx, iso)}
-        ${lyftSolto > 0.004 ? `<p class="hint">+ ${money(lyftSolto, true)} de Extra Money · <a href="#extra">ver</a></p>` : ""}
-        ${Number(r.extras) ? `<p class="hint">+ ${money(Number(r.extras), true)} de outras entradas</p>` : ""}
-        ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
-        ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${ativo(state, "metas") ? pisoBar({ renda, piso: week.piso }) : ""}
-        <a class="link" href="#ajustes" data-abrir-sec="ciclo">editar meu pagamento</a>`,
-    }) : card({
-      title: "Quanto vai entrar",
-      body: `<div class="big">${money(renda)}</div>
+    <section class="card rc-card">
+      <div class="rc-topo">
+        <div><span class="rs-lbl">Vai entrar</span><b class="rc-total num">${money(renda, true)}</b></div>
+        ${ativo(state, "metas") && week.piso > 0 ? `<span class="piso-pill ${renda >= week.piso ? "ok" : "warn"}">${renda >= week.piso ? "Piso ✓" : `faltam ${money(week.piso - renda)} p/ o piso`}</span>` : ""}
+      </div>
+      ${ativo(state, "metas") && week.piso > 0 ? `<div class="track thin"><div class="fill" style="width:${Math.min(100, (renda / week.piso) * 100)}%"></div></div>` : ""}
+      ${usaEntradas(state, iso) ? `<ul class="rc-lista">
+          ${ent.html}
+          ${avulsasHtml(ctx, iso)}
+          ${lyftSolto > 0.004 ? linhaExtra("extra", "Extra Money", "calculadoras", lyftSolto, ` · <a href="#extra">ver</a>`) : ""}
+          ${Number(r.extras) ? linhaExtra("avulsa", "Outras entradas", "lançado antes", Number(r.extras)) : ""}
+          ${receb.valor ? linhaExtra("pessoa", `De ${receb.de.join(", ")}`, "A receber", receb.valor) : ""}
+          ${ajuda ? linhaExtra("pessoa", "Ajuda", "Dividir", ajuda) : ""}
+        </ul>` : `
         ${!temEntradas(state) ? `<p class="hint"><a href="#ajustes" data-abrir-sec="ciclo">Cadastre seu salário</a> e não precisa digitar toda semana.</p>` : ""}
         <div class="fields">
           ${field({ id: "salario", label: "Salário + extras", value: r.salario, prefix: "$", placeholder: "0,00" })}
@@ -162,14 +167,19 @@ export function renderHoje(root, ctx) {
             : field({ id: "lyft", label: "Extra money", value: r.lyft, prefix: "$", placeholder: "0,00", note: '<a href="#extra">registrar</a>' })}
           ${Number(r.extras) ? field({ id: "extras", label: "Outras entradas", value: r.extras, prefix: "$", placeholder: "0,00" }) : ""}
         </div>
-        ${avulsasHtml(ctx, iso)}
         ${contasCorrentes(state).length > 1 ? `<div class="fields">
           ${contasCorrentes(state).filter((b) => b.id !== contaPrincipal(state)).map((b) => field({ id: `pb-${b.id}`, label: `Do salário, caiu no ${b.banco}`, value: (r.porBanco || {})[b.id], prefix: "$", placeholder: "0,00", attrs: `data-porbanco="${esc(b.id)}"` })).join("")}
-        </div><p class="hint">O resto cai no ${esc(contasCorrentes(state)[0].banco)}.</p>` : ""}
-        ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
-        ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${ativo(state, "metas") ? pisoBar({ renda, piso: week.piso }) : ""}`,
-    })}
+        </div>` : ""}
+        <ul class="rc-lista">${avulsasHtml(ctx, iso)}
+          ${receb.valor ? linhaExtra("pessoa", `De ${receb.de.join(", ")}`, "A receber", receb.valor) : ""}
+          ${ajuda ? linhaExtra("pessoa", "Ajuda", "Dividir", ajuda) : ""}</ul>`}
+      <div class="rc-acoes">
+        <button class="txt-acao" type="button" id="av-abrir">${ICONE.mais}Outra entrada</button>
+        <a class="txt-acao" href="#ajustes" data-abrir-sec="ciclo" aria-label="Configurar meu pagamento">${ICONE.config}Meu pagamento</a>
+      </div>
+    </section>
+
+    ${resumoSemana}
 
     ${listaSexta}
 
@@ -177,6 +187,7 @@ export function renderHoje(root, ctx) {
 
     ${syncNote(ctx)}
     ${sheetHtml}
+    ${entradasSheet(ctx, iso)}
   `;
 
   bindWeekNav(root, ctx);

@@ -72,13 +72,6 @@ export function segmented({ name, label, options, value }) {
 }
 
 // Progresso até o próximo nível + os três níveis
-// Piso da semana: quanto falta para o mínimo
-export function pisoBar({ renda, piso }) {
-  if (!(piso > 0)) return "";
-  const pct = Math.min(100, (renda / piso) * 100);
-  const status = renda >= piso ? `<span class="status ok">Piso ✓${renda > piso ? ` · ${money(renda - piso)} acima` : ""}</span>` : `<span class="status warn">Faltam ${money(piso - renda)} para o piso (${money(piso)}).</span>`;
-  return `<div class="piso">${status}<div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
-}
 
 
 // Linha de dívida: posição, nome, etiquetas, saldo e barra de uso
@@ -102,27 +95,28 @@ export function stats(items) {
 const VERBO ={ pagar: "pagar", guardar: "guardar", usar: "para usar" };
 
 // Linha da lista de sexta: o que fazer com cada valor
-export function payRow(item, { valorAgora, pago, info, destino, n }) {
-  const tags = [];
-  if (destino) tags.push(chip(`→ ${destino}`, "ok"));
-  if (info && info.valor != null) tags.push(chip(`pago ${money(info.valor, true)}${Number(info.juros) ? ` + ${money(Number(info.juros), true)} juros` : ""}`, "ok"));
-  if (item.atrasado) tags.push(chip("atrasado", "miss"));
-  tags.push(chip(item.vence && item.acao === "pagar" ? `pagar até ${shortDate(item.vence)}` : VERBO[item.acao] || "guardar", item.acao === "pagar" ? "part" : "plan"));
-  if (item.veioDe) tags.push(chip("veio do pagamento anterior"));
-  if (item.semParcial) tags.push(chip("só valor inteiro"));
-  if (item.protegido) tags.push(chip("protegido", "plan"));
-  if (item.estimativa) tags.push(chip("≈ estimativa"));
+// Linha compacta do plano: nº · nome e detalhe · valor e status · marcar
+export function planoRow(item, { valorAgora, pago, info, destino, n }) {
   const parcial = !info && valorAgora < item.valor - 0.005;
-  return `<li class="mission ${pago ? "done" : ""}">
-    <input class="check" type="checkbox" data-pago="${esc(item.id)}" ${pago ? "checked" : ""} aria-label="Marcar ${esc(item.nome)} como feito">
-    <div>
-      <div class="name">${n ? `<span class="num">${n}</span>` : ""}${esc(item.nome)}</div>
-      ${item.detalhe ? `<div class="hint">${esc(item.detalhe)}</div>` : ""}
-      <div class="meta">${tags.join("")}</div>
-    </div>
-    <div class="value">${money(valorAgora, true)}${parcial ? `<div class="hint">de ${money(item.valor, true)}</div>` : ""}</div>
+  const sub = [
+    item.detalhe,
+    destino ? `→ ${destino}` : "",
+    item.vence && item.acao === "pagar" && !item.atrasado ? `até ${shortDate(item.vence)}` : "",
+    item.veioDe ? "da semana anterior" : "",
+    parcial ? `parte de ${money(item.valor, true)}` : "",
+    item.semParcial ? "só valor inteiro" : "",
+    item.estimativa ? "≈ estimativa" : "",
+    info && Number(info.juros) ? `+ ${money(Number(info.juros), true)} juros` : "",
+  ].filter(Boolean).map(esc).join(" · ");
+  const [st, cls] = pago ? ["pago", "ok"] : item.atrasado ? ["atrasado", "terra"] : item.acao === "guardar" ? ["guardar", "lilac"] : item.grupo === "vida" ? ["para usar", ""] : ["a pagar", ""];
+  return `<li class="pl-linha ${pago ? "done" : ""}">
+    <span class="pl-n num">${n || ""}</span>
+    <div class="pl-txt"><span class="pl-nome">${esc(item.nome)}</span>${sub ? `<span class="pl-sub">${sub}</span>` : ""}</div>
+    <div class="pl-dir"><b class="num">${money(valorAgora, true)}</b><span class="pl-st ${cls}">${st}</span></div>
+    <input class="check" type="checkbox" data-pago="${esc(item.id)}" ${pago ? "checked" : ""} aria-label="Marcar ${esc(item.nome)} como pago">
   </li>`;
 }
+
 
 export function mission(item, { coberto, pago, mostrarCobertura }) {
   const tags = [];
