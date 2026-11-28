@@ -1,7 +1,7 @@
 // =========================================================
 // MEU PAGAMENTO (Ajustes) — um lugar só para o que é fixo:
 // quando recebo (frequência e regra do dia), quanto é o salário,
-// em qual conta cai, o piso da semana e a poupança semanal.
+// em qual conta cai e o piso. Poupança fica em Meu objetivo.
 // Extras e entradas avulsas eu lanço na Hoje (+ Outra entrada).
 // =========================================================
 import { parte, salvarParte } from "../core/config.js";
@@ -59,14 +59,14 @@ export function pagamentoHtml(ctx) {
     regras: salvo.tipo === "duasVezes" ? (salvo.pagamentos || [{ regra: "dia", dia: 15 }, { regra: "dia", dia: 0 }]) : [{ regra: salvo.regra || "dia", dia: salvo.diaMes || 1, n: salvo.nUtil || 5, antes: salvo.antes }],
     salario: sal.valor ?? "", conta: sal.conta || contas[0].id,
     divConta: ((sal.divisao || [])[0] || {}).conta || "", divValor: ((sal.divisao || [])[0] || {}).valor ?? "",
-    piso: parte(state, "metas").piso ?? "", poupanca: parte(state, "colchaoSemanal") || "",
+    piso: parte(state, "metas").piso ?? "",
   };
   const t = d.tipo || "semanal";
   const campos = t === "semanal" ? select({ id: "pg-diasem", label: "Dia da semana", options: DIAS, value: String(d.diaSemana ?? 5) })
     : t === "quinzenal" ? field({ id: "pg-ancora", label: "Data de um pagamento", type: "date", value: d.ancora || toISO(nextPayday()) })
     : t === "mensal" ? regraCampos(d.regras[0], 0)
     : t === "duasVezes" ? regraCampos(d.regras[0], 0) + regraCampos(d.regras[1] || { regra: "dia", dia: 0 }, 1)
-    : `${field({ id: "pg-nova", label: "Adicionar data", type: "date", value: "" })}
+    : `<div class="add-data">${field({ id: "pg-nova", label: "Nova data", type: "date", value: "" })}<button class="btn" type="button" id="pg-add-data">Adicionar</button></div>
        <ul class="cat-list datas">${[...(d.datas || [])].sort().map((x) => `<li><span>${shortDate(fromISO(x))}</span><button class="link" type="button" data-pg-rmdata="${x}">remover</button></li>`).join("") || `<li class="hint">Nenhuma data ainda.</li>`}</ul>`;
   // Prévia dos próximos pagamentos com o rascunho
   const atual = getCiclo();
@@ -89,10 +89,8 @@ export function pagamentoHtml(ctx) {
           ${d.divConta ? field({ id: "pg-divvalor", label: "Quanto vai para ela", value: d.divValor, prefix: "$", placeholder: "0,00" }) : ""}` : ""}
       </div>
 
-      <h4 class="sub-h">Piso e poupança</h4>
       <div class="fields stack">
-        ${field({ id: "pg-piso", label: "Piso (o mínimo que preciso)", value: d.piso, prefix: "$" })}
-        ${field({ id: "pg-poupanca", label: "Poupança por semana", value: d.poupanca, prefix: "$" })}
+        ${field({ id: "pg-piso", label: "Piso (o mínimo que preciso receber)", value: d.piso, prefix: "$" })}
       </div>
       <p class="hint">Extras e entradas que acontecem uma vez: Hoje → + Outra entrada.</p>
       ${outras.length ? `<p class="hint">Entradas variáveis antigas: ${outras.map((e) => `${esc(e.nome)} <button class="link danger" type="button" data-pg-rment="${esc(e.id)}">remover</button>`).join(" · ")}</p>` : ""}
@@ -126,7 +124,7 @@ export function bindPagamento(root, ctx) {
       datas: base.datas || parte(state, "ciclo").datas || [],
       salario: v("#pg-salario"), conta: v("#pg-conta"),
       divConta: v("#pg-divconta") ?? "", divValor: v("#pg-divvalor") ?? base.divValor ?? "",
-      piso: v("#pg-piso"), poupanca: v("#pg-poupanca"),
+      piso: v("#pg-piso"),
     };
     const regras = (base.regras || [{ regra: "dia", dia: 15 }, { regra: "dia", dia: 0 }]).map((r) => ({ ...r }));
     f.querySelectorAll("[data-pg]").forEach((el) => {
@@ -143,7 +141,8 @@ export function bindPagamento(root, ctx) {
   f.querySelectorAll('[data-pg="regra"], #pg-divconta').forEach((el) => el.addEventListener("change", redesenhar));
   f.addEventListener("input", () => { if (!ctx.pgDraft) { ctx.pgDraft = ler(); const bar = f.querySelector(".save-bar"); if (!bar.querySelector(".save-msg")) bar.insertAdjacentHTML("beforeend", `<span class="save-msg warn">alterações não salvas</span>`); } });
   const nova = f.querySelector("#pg-nova");
-  if (nova) nova.addEventListener("change", () => { const d = ler(); if (nova.value && !d.datas.includes(nova.value)) d.datas = [...d.datas, nova.value].sort(); ctx.pgDraft = d; ctx.openSec = "ciclo"; ctx.rerender(); });
+  const addData = f.querySelector("#pg-add-data");
+  if (nova && addData) addData.onclick = () => { const d = ler(); if (nova.value && !d.datas.includes(nova.value)) d.datas = [...d.datas, nova.value].sort(); ctx.pgDraft = d; ctx.openSec = "ciclo"; ctx.rerender(); };
   f.querySelectorAll("[data-pg-rmdata]").forEach((b) => (b.onclick = () => { const d = ler(); d.datas = d.datas.filter((x) => x !== b.dataset.pgRmdata); ctx.pgDraft = d; ctx.openSec = "ciclo"; ctx.rerender(); }));
   f.querySelectorAll("[data-pg-rment]").forEach((b) => (b.onclick = () => {
     state.config = { ...state.config, entradas: listaEntradas(state).filter((e) => e.id !== b.dataset.pgRment) };
@@ -171,7 +170,6 @@ export function bindPagamento(root, ctx) {
     // Só o piso (meta e turbo ficam iguais ao piso)
     const piso = Number(String(d.piso).replace(",", ".")) || 0;
     salvarParte(state, "metas", { ...parte(state, "metas"), piso, meta: piso, turbo: piso });
-    salvarParte(state, "colchaoSemanal", Number(String(d.poupanca).replace(",", ".")) || 0);
     ctx.pgDraft = null; ctx.openSec = null;
     persist(); ctx.rerender(); toast("Salvo ✓");
   });

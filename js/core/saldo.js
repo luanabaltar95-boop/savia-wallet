@@ -46,7 +46,9 @@ export function movimentos(state, contaId, desde = 0, agora = Date.now()) {
   }));
   // Pagamentos marcados na Hoje
   Object.entries(state.pagos || {}).forEach(([iso, semana]) => Object.entries(semana || {}).forEach(([id, pg]) => {
-    if (!pg || typeof pg !== "object" || !daConta(pg.banco)) return;
+    if (!pg || typeof pg !== "object") return;
+    if (pg.para && pg.para === contaId && pg.para !== (pg.banco || pri)) add((pg.ts || tsData(pg.data)) + 1, n(pg.valor), pg.nome || "Guardei", "guardar", { iso, item: id });
+    if (!daConta(pg.banco)) return;
     add(pg.ts || tsData(pg.data), -(n(pg.valor) + n(pg.juros)), pg.nome || id, "pagamento", { iso, item: id });
   }));
   // Gastos no débito

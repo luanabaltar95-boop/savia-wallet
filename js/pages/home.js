@@ -9,6 +9,7 @@ import { money, monthYear, dayLabel } from "../core/format.js";
 import { card, stats, esc } from "../components/ui.js";
 import { scene, montarCena } from "../components/scene.js";
 import { ativo } from "../core/modulos.js";
+import { objetivoCard, bindObjetivoCard } from "../components/objetivoCard.js";
 import { rendaEfetiva } from "../core/plan.js";
 import { caixaDaSemana, contasCorrentes } from "../core/caixa.js";
 import { saldoAtual } from "../core/saldo.js";
@@ -72,6 +73,7 @@ function homeSimples(root, ctx) {
         <div><p class="eyebrow">${MARCA}</p><h1>Minha carteira</h1></div></div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
+    ${objetivoCard(ctx)}
     ${card({ title: "Esta semana", body: `${stats([
         { label: "Entra", valor: money(cx.total.entra) },
         { label: "Já saiu", valor: money(cx.total.paguei + cx.total.ajuste) },
@@ -79,6 +81,7 @@ function homeSimples(root, ctx) {
       ])}<a class="btn primary" href="#hoje">Ver o que pagar</a>` })}
     ${card({ title: "Nas minhas contas", body: `<ul class="resumo-lista">${contas.map(({ b, s }) => `<li><div class="rs-nome"><span>${esc(b.banco)}</span></div><b>${s == null ? "—" : money(s, true)}</b></li>`).join("")}</ul><a class="link" href="#contas">ver contas</a>` })}
     ${syncNote(ctx)}`;
+  bindObjetivoCard(root, ctx);
 }
 
 export function renderHome(root, ctx) {
@@ -109,6 +112,7 @@ export function renderHome(root, ctx) {
       </div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
+    ${objetivoCard(ctx)}
 
     <section class="card scene-card">
       ${scene(j.progresso)}
@@ -142,4 +146,5 @@ export function renderHome(root, ctx) {
   `;
 
   montarCena(root, j.fases);
+  bindObjetivoCard(root, ctx);
 }

@@ -12,6 +12,7 @@ import { recebidoValor } from "./receber.js";
 import { parte } from "./config.js";
 import { usaEntradas, entradasDaSemana, totalEntradas, calcsUsadas, lista as listaEntradas, totalAvulsas } from "./entradas.js";
 import { liquidoFonte } from "./extra.js";
+import { nomeGuardar } from "./objetivo.js";
 
 // O plano começa em seed.inicio (primeiro pagamento depois de montar a carteira)
 
@@ -166,19 +167,21 @@ function baseItems(seed, state, payday) {
     if (v) add({ id: p.id, nome: p.nome, valor: v, vence: fromISO(p.data), grupo: "pedidos" });
   });
 
-  add({ id: "colchao", nome: "Poupança", valor: r2(seed.colchaoSemanal * f), grupo: "colchao" });
+  // Quanto guardo por semana para o meu objetivo (vai para a conta do objetivo)
+  add({ id: "colchao", nome: nomeGuardar(state), valor: r2(seed.colchaoSemanal * f), grupo: "colchao", acao: "guardar" });
   return items;
 }
 
 // Ordem de prioridade final, em camadas:
 // 0 vida (comida, gasolina, cachorros) · 1 atrasados · 2 contas a pagar na semana (por data)
-// 3 reservas (vindas da semana passada antes) · 4 pedidos protegidos · 5 colchão
+// 3 reservas (vindas da semana passada antes) · 4 pedidos protegidos
+// Guardar para o objetivo vem logo depois do "para usar" (pago a mim primeiro)
 function tier(i) {
   if (i.grupo === "vida") return 0;
+  if (i.grupo === "colchao") return 0.5;
   if (i.atrasado) return 1;
   if (i.acao === "pagar") return 2;
   if (i.grupo === "pedidos") return i.protegido ? 2.5 : 4;
-  if (i.grupo === "colchao") return 5;
   return 3;
 }
 export function priorityOrder(items) {
@@ -277,4 +280,18 @@ export function serieAtaque(seed, state, from, semanas = 156) {
     out.push({ payday, fator: fator(payday), valor: allocate(w, rendaEfetiva(seed, state, w.iso).valor).ataque });
   }
   return out;
+}
+
+// Quanto já paguei de uma conta (inclui as semanas em que ela foi carregada: id@semana)
+export function pagoDe(state, id) {
+  let total = 0, quitado = false, data = null;
+  Object.values(state.pagos || {}).forEach((sem) => Object.entries(sem || {}).forEach(([k, p]) => {
+    if (k !== id && k.split("@")[0] !== id) return;
+    if (p === true) { quitado = true; return; }
+    if (!p || typeof p !== "object") return;
+    total += (Number(p.valor) || 0);
+    if (p.quitado) quitado = true;
+    if (p.data && (!data || p.data > data)) data = p.data;
+  }));
+  return { total: Math.round(total * 100) / 100, quitado, data };
 }

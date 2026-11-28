@@ -8,6 +8,7 @@ import { buildWeek, allocate, rendaDa, rendaEfetiva, lyftDa, restante, pagamento
 import { ajudaDa } from "../core/juntas.js";
 import { carteiraVazia } from "./home.js";
 import { poupanca, vaiParaPoupanca } from "../core/destino.js";
+import { contaDestino } from "../core/objetivo.js";
 import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
@@ -124,7 +125,7 @@ export function renderHoje(root, ctx) {
     hint: "Pago nesta ordem e marco cada uma.",
     body: `<div class="disp">${saldoSemana}</div><ul class="missions plano">${fazer.map((i, k) => {
       const info = pagamento(state, iso, i.id);
-      return payRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: vaiParaPoupanca(i, payday) ? pp.banco : "" });
+      return payRow(i, { n: k + 1, valorAgora: info && info.valor != null ? info.valor : cover[i.id], pago: !!info, info, destino: i.grupo === "colchao" ? contaDestino(state).banco : vaiParaPoupanca(i, payday) ? pp.banco : "" });
     }).join("")}</ul>`,
   });
 
@@ -256,6 +257,8 @@ export function renderHoje(root, ctx) {
       const bancoEl = sheet.querySelector("#pg-banco");
       const banco = bancoEl ? bancoEl.value : contaPrincipal(state);
       const reg = { valor, juros, data, quitado, banco, ts: Date.now(), nome: item.nome };
+      // Guardar: o dinheiro sai da conta e entra na conta do objetivo
+      if (item.grupo === "colchao") reg.para = contaDestino(state).id;
       const origEl = sheet.querySelector("#pg-orig");
       if (origEl && Number(origEl.value) > 0) {
         // Cotação real deste pagamento (com taxas) vira a cotação das próximas contas

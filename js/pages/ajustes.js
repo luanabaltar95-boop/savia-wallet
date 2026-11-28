@@ -11,12 +11,13 @@ import { meuMenuHtml, bindMeuMenu } from "./meuMenu.js";
 import { bancosAjustesHtml, bindBancosAjustes } from "./bancosAjustes.js";
 import { futurosHtml, bindFuturos } from "./futurosAjustes.js";
 import { pagamentoHtml, bindPagamento, resumoPagamento } from "./pagamentoAjustes.js";
+import { objetivoHtml, bindObjetivo, objetivoResumo } from "./objetivoAjustes.js";
 import { ativo, blocoLiberado } from "../core/modulos.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
 import { conexoesHtml, bindConexoes } from "./conexoes.js";
 import { parte, salvarParte } from "../core/config.js";
-import { FREQS } from "../core/plan.js";
+import { FREQS, pagoDe } from "../core/plan.js";
 import { money, shortDate } from "../core/format.js";
 import { fromISO, toISO, addDays, pagamentoAte, nextPayday } from "../core/calendar.js";
 import { field, select, segmented, esc, toast } from "../components/ui.js";
@@ -39,8 +40,8 @@ const CAMPOS_CONTA = [
   { f: "freq", label: "Frequência", type: "select", options: () => FREQ_CONTAS },
   { f: "dia", label: "Dia do vencimento", so: "mes" },
   { f: "categoria", label: "Categoria", type: "select", options: (st) => opcoesCategoria(st) },
-  { f: "desde", label: "A partir de", type: "date", so: "mes" },
-  { f: "ate", label: "Até (opcional)", type: "date", so: "mes" },
+  { f: "desde", label: "Começa em", type: "date" },
+  { f: "ate", label: "Termina em (fim do contrato, opcional)", type: "date" },
   { f: "divida", label: "Abate a dívida", type: "select", options: (st) => opcoesDivida(st), so: "mes" },
   { f: "investimento", label: "É investimento", type: "checkbox", so: "mes" },
   { f: "semParcial", label: "Só aceita o valor inteiro (sem pagamento parcial)", type: "checkbox", so: "mes" },
@@ -70,11 +71,13 @@ function linhaConta(src, r, i, state) {
   const cat = (opcoesCategoria(state).find((c) => c.id === r.categoria) || {}).label || "";
   const [valor0, det] = freq === "semanal" ? [money(r.valor, true), ""] : SECOES[0].resumo(r);
   const valor = emOutraMoeda(state, r) ? fmtMoeda(r.valorMoeda, r.moeda) : valor0;
-  const resumo = [valor, [det, cat].filter(Boolean).join(" · ")];
+  const fim = r.ate ? `termina ${shortDate(fromISO(r.ate))}` : "";
+  const resumo = [valor, [det, cat, fim].filter(Boolean).join(" · ")];
   return `<details class="row-edit">
     ${resumoRow(r.nome, resumo)}
     <form class="conta-form" data-src="${src}" data-i="${i}" novalidate>
       <div class="fields stack">${campos}</div>
+      ${r.ate ? `<button class="link" type="button" data-renovar="${src}|${i}">+ Novo contrato a partir de ${shortDate(addDays(fromISO(r.ate), 1))}</button>` : ""}
       <div class="save-bar">
         <button class="btn primary" type="submit">Salvar</button>
         <button class="btn" type="button" data-fechar-row>Cancelar</button>
@@ -317,6 +320,27 @@ export function renderAjustes(root, ctx) {
     </div>`;
   };
 
+  // Atrasadas: o que falta pagar em cima; as já pagas ficam guardadas embaixo
+  const atrasadasHtml = () => {
+    const sec = SECOES.find((x) => x.chave === "pontuais");
+    const rows = parte(state, "pontuais");
+    const st = rows.map((r, i) => {
+      const p = pagoDe(state, r.id);
+      const falta = Math.max(0, Number(r.valor || 0) - p.total);
+      return { r, i, p, falta, paga: p.quitado || falta <= 0.005 };
+    });
+    const abertas = st.filter((x) => !x.paga), pagas = st.filter((x) => x.paga);
+    const linhaAberta = (x) => `<div class="atraso-linha">${linha(sec, x.r, x.i, state)}
+      <div class="atraso-st">${x.p.total ? `<span class="chip">paguei ${money(x.p.total, true)} · faltam ${money(x.falta, true)}</span>` : ""}
+        <button class="link" type="button" data-ja-paguei="${x.i}">Já paguei</button></div></div>`;
+    return `<section class="sub" data-sub="pontuais">
+      ${abertas.length ? `<div class="rows">${abertas.map(linhaAberta).join("")}</div>` : `<p class="hint">Nada em atraso. 🎉</p>`}
+      <button class="btn primary add-btn" data-add="pontuais">+ Adicionar</button>
+      ${pagas.length ? `<details class="sub pagas"><summary class="sub-head"><h3>Pagas</h3><span class="total">${pagas.length}</span></summary>
+        <ul class="resumo-lista">${pagas.map((x) => `<li><div class="rs-nome"><span>${esc(x.r.nome)}</span><small class="hint">paga${x.p.data ? ` em ${shortDate(fromISO(x.p.data))}` : ""}</small></div><b>${money(x.p.total || x.r.valor, true)}</b></li>`).join("")}</ul></details>` : ""}
+    </section>`;
+  };
+
   // Minhas contas em abas: uma lista por vez (página curta)
   const contasAbas = () => {
     const aba = ctx.contasAba || "fixas";
@@ -326,7 +350,7 @@ export function renderAjustes(root, ctx) {
       { id: "futuras", label: "Futuras", n: parte(state, "pedidos").length },
       { id: "categorias", label: "Categorias", n: parte(state, "categorias").length },
     ];
-    const corpo = aba === "atraso" ? lista(SECOES.find((x) => x.chave === "pontuais"), 0, [1])
+    const corpo = aba === "atraso" ? atrasadasHtml()
       : aba === "futuras" ? futurosHtml(ctx)
       : aba === "categorias" ? categoriasHtml()
       : contasHtml(state);
@@ -342,13 +366,15 @@ export function renderAjustes(root, ctx) {
 
 
   // Blocos de módulos desligados não aparecem (numeração segue a ordem)
-  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i === 0 ? 1 : i + 2 })).map((b) => `
+  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i === 0 ? 1 : i + 3 })).map((b) => `
     <details class="card sec" data-sec="${b.id}" ${ctx.openSec === b.id ? "open" : ""}>
       <summary class="sec-head"><h2><span class="passo">${b.n}</span>${b.titulo}</h2><span class="total">${resumoBloco(b)}</span></summary>
       <div class="sec-body">
         ${b.id === "ciclo" ? pagamentoHtml(ctx) : b.id === "contas" ? contasAbas() : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
       </div>
-    </details>${b.id === "ciclo" ? bancosAjustesHtml(ctx, 2) : ""}`).join("");
+    </details>${b.id === "ciclo" ? `<details class="card sec" data-sec="objetivo" ${ctx.openSec === "objetivo" ? "open" : ""}>
+        <summary class="sec-head"><h2><span class="passo">2</span>Meu objetivo</h2><span class="total">${objetivoResumo(ctx)}</span></summary>
+        <div class="sec-body">${objetivoHtml(ctx)}</div></details>` + bancosAjustesHtml(ctx, 3) : ""}`).join("");
   const grupo = (titulo, html) => (html.trim() ? `<section class="grupo"><h3 class="grupo-t">${titulo}</h3><div class="grupo-card">${html}</div></section>` : "");
 
 
@@ -482,7 +508,8 @@ export function renderAjustes(root, ctx) {
       if (freq === "semanal") {
         destino = "semanais";
         novo = { ...base, grupo: "vida", compartilhado: v("compartilhado").checked };
-        ["freq", "dia", "desde", "ate", "divida", "diaConfirmar"].forEach((k) => delete novo[k]);
+        ["freq", "dia", "divida", "diaConfirmar"].forEach((k) => delete novo[k]);
+        ["desde", "ate"].forEach((f) => { if (v(f).value) novo[f] = v(f).value; else delete novo[f]; });
         if (antes.estimativa && base.valor === antes.valor) novo.estimativa = true;
       } else {
         destino = "mensais";
@@ -513,6 +540,31 @@ export function renderAjustes(root, ctx) {
       salvar();
     };
   });
+  // Atrasada que já paguei (fora do app ou o resto): marca quitada e o plano refaz
+  root.querySelectorAll("[data-ja-paguei]").forEach((b) => (b.onclick = () => {
+    if (!b.dataset.confirma) { b.dataset.confirma = "1"; b.textContent = "Confirmar: já paguei"; return; }
+    const r = parte(state, "pontuais")[Number(b.dataset.jaPaguei)];
+    const p = pagoDe(state, r.id);
+    const sem = r.semana || toISO(nextPayday());
+    const atual = (state.pagos[sem] || {})[r.id];
+    const valor = atual && typeof atual === "object" ? Number(atual.valor) || 0 : Math.max(0, Number(r.valor || 0) - p.total);
+    state.pagos[sem] = { ...(state.pagos[sem] || {}), [r.id]: { ...(typeof atual === "object" ? atual : {}), valor, juros: 0, data: toISO(new Date()), quitado: true, nome: r.nome, ts: atual && atual.ts ? atual.ts : 1 } }; // pago fora do app: não mexe no saldo
+    ctx.openSec = "contas"; ctx.contasAba = "atraso";
+    persist(); ctx.rerender(); toast("Paga ✓ · plano atualizado");
+  }));
+
+  // Renovar: a conta termina numa data; o novo contrato começa no dia seguinte
+  root.querySelectorAll("[data-renovar]").forEach((b) => (b.onclick = () => {
+    const [src, i] = b.dataset.renovar.split("|");
+    const lista = parte(state, src);
+    const velho = lista[Number(i)];
+    const novo = { ...velho, id: novoId(), nome: `${velho.nome} (novo)`, desde: toISO(addDays(fromISO(velho.ate), 1)) };
+    delete novo.ate;
+    salvarParte(state, src, [...lista, novo]);
+    ctx.openSec = "contas"; ctx.contasAba = "fixas"; ctx.openRow = `${src}|${lista.length}`;
+    persist(); ctx.rerender(); toast("Novo contrato criado · ajuste o valor");
+  }));
+
   // Organizar a ordem das contas
   root.querySelectorAll("[data-organizar]").forEach((b) => (b.onclick = () => {
     organizando = organizando === b.dataset.organizar ? null : b.dataset.organizar;
@@ -573,6 +625,7 @@ export function renderAjustes(root, ctx) {
   bindBancosAjustes(root, ctx);
   bindFuturos(root, ctx);
   bindPagamento(root, ctx);
+  bindObjetivo(root, ctx);
   root.querySelectorAll("[data-aba]").forEach((b) => (b.onclick = () => { ctx.contasAba = b.dataset.aba; ctx.openSec = "contas"; ctx.openRow = null; ctx.rerender(); }));
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };

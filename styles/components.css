@@ -663,3 +663,16 @@ details.cats .sub-head .total { margin-left: auto; }
 @media (max-width: 360px) { .aba span { display: none; } }
 .aba { white-space: nowrap; }
 .aba span { display: none; }
+
+/* Caixas de marcar nos formulários: pequenas e alinhadas com o texto */
+.check-field { align-items: flex-start; margin: 0; min-height: 0; padding: 6px 0; line-height: 1.35; }
+.check-field .check { flex: none; width: 22px; height: 22px; border-radius: 7px; margin-top: 1px; }
+.check-field .check:checked::after { width: 9px; height: 5px; }
+.add-data { display: flex; align-items: flex-end; gap: var(--s2); }
+.add-data .field { flex: 1; }
+.atraso-st { display: flex; align-items: center; justify-content: space-between; gap: var(--s2); padding: 0 0 var(--s3); border-bottom: 1px solid var(--line); }
+.atraso-linha .row-edit { border-bottom: 0; }
+.pagas { margin-top: var(--s4); }
+.pagas > summary { list-style: none; cursor: pointer; }
+.pagas > summary::-webkit-details-marker { display: none; }
+.obj-l { margin: var(--s2) 0 0; line-height: 1.4; }
