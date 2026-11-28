@@ -66,7 +66,7 @@ export function jornada(seed, state) {
   const fracPago = inicio ? pagoCartoes / inicio : 0;
 
   // Semanas em que a renda bateu a meta
-  const semanasMeta = Object.keys(state.renda || {}).filter((iso) => rendaDa(state, iso) >= seed.metas.meta).length;
+  const semanasMeta = Object.keys(state.renda || {}).filter((iso) => rendaDa(state, iso) >= seed.metas.piso).length;
 
   const progresso = Math.min(1, 0.6 * (feitas / fases.length) + 0.4 * fracPago);
 

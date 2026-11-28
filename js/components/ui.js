@@ -72,36 +72,14 @@ export function segmented({ name, label, options, value }) {
 }
 
 // Progresso até o próximo nível + os três níveis
-export function levels({ renda, piso, meta, turbo, nomes = {} }) {
-  const steps = [
-    { nome: nomes.piso || "Piso", valor: piso },
-    { nome: nomes.meta || "Meta", valor: meta },
-    { nome: nomes.turbo || "Turbo", valor: turbo },
-  ];
-  const next = steps.find((s) => renda < s.valor);
-  const prev = [...steps].reverse().find((s) => renda >= s.valor);
-  const from = prev ? prev.valor : 0;
-  const pct = next ? Math.max(0, Math.min(100, ((renda - from) / (next.valor - from)) * 100)) : 100;
-
-  let status;
-  if (!renda) status = `<span class="status">Quando eu digitar quanto entrou, aparece meu nível.</span>`;
-  else if (!prev) status = `<span class="status warn">Faltam ${money(piso - renda)} para ${steps[0].nome}.</span>`;
-  else if (next) status = `<span class="status ok">${prev.nome} ✓ · faltam ${money(next.valor - renda)} para ${next.nome}.</span>`;
-  else status = `<span class="status ok">${steps[2].nome} ✓ · semana excelente.</span>`;
-
-  const tiles = steps.map((s) => {
-    const ok = renda >= s.valor;
-    return `<div class="level ${ok ? "ok" : ""}"><span>${s.nome}</span><b>${money(s.valor)}</b></div>`;
-  }).join("");
-
-  return `<div class="levels">
-    ${status}
-    <div class="track" role="progressbar" aria-valuenow="${Math.round(pct)}" aria-valuemin="0" aria-valuemax="100">
-      <div class="fill ${prev ? "" : "low"}" style="width:${pct}%"></div>
-    </div>
-    <div class="level-row">${tiles}</div>
-  </div>`;
+// Piso da semana: quanto falta para o mínimo
+export function pisoBar({ renda, piso }) {
+  if (!(piso > 0)) return "";
+  const pct = Math.min(100, (renda / piso) * 100);
+  const status = renda >= piso ? `<span class="status ok">Piso ✓${renda > piso ? ` · ${money(renda - piso)} acima` : ""}</span>` : `<span class="status warn">Faltam ${money(piso - renda)} para o piso (${money(piso)}).</span>`;
+  return `<div class="piso">${status}<div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
 }
+
 
 // Linha de dívida: posição, nome, etiquetas, saldo e barra de uso
 export function debtRow({ rank, nome, saldo, tags = [], uso, sub }) {

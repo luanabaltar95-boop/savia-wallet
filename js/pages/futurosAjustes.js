@@ -58,7 +58,6 @@ export function futurosHtml(ctx) {
     </li>`;
 
   return `<div class="sub-sec">
-    <h3 class="sub-h">Pagamentos futuros</h3>
     ${lista.length ? `<ul class="shares">${lista.map(linha).join("")}</ul>` : `<p class="hint">Reservas e compras que pago em partes até uma data.</p>`}
     ${ed === "novo" ? form(rascunho) : ed ? "" : `<button class="btn primary add-btn" id="fut-novo">+ Adicionar</button>`}
   </div>`;

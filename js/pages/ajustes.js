@@ -7,10 +7,10 @@
 import { syncNote, sairDaConta } from "../core/sync.js";
 import { MOEDAS, moedaBase, emOutraMoeda, converter, fmtMoeda } from "../core/cambio.js";
 import { cambioHtml, bindCambio } from "./cambio.js";
-import { entradasAjustesHtml, bindEntradasAjustes } from "./entradasAjustes.js";
 import { meuMenuHtml, bindMeuMenu } from "./meuMenu.js";
 import { bancosAjustesHtml, bindBancosAjustes } from "./bancosAjustes.js";
 import { futurosHtml, bindFuturos } from "./futurosAjustes.js";
+import { pagamentoHtml, bindPagamento, resumoPagamento } from "./pagamentoAjustes.js";
 import { ativo, blocoLiberado } from "../core/modulos.js";
 import { backend } from "../core/backend.js";
 import { dadosHtml, bindDados } from "./dados.js";
@@ -18,7 +18,7 @@ import { conexoesHtml, bindConexoes } from "./conexoes.js";
 import { parte, salvarParte } from "../core/config.js";
 import { FREQS } from "../core/plan.js";
 import { money, shortDate } from "../core/format.js";
-import { fromISO, toISO, addDays, pagamentoAte, TIPOS_CICLO, DIAS_SEMANA, getCiclo, setCiclo, nextPayday, pagamentoSeguinte } from "../core/calendar.js";
+import { fromISO, toISO, addDays, pagamentoAte, nextPayday } from "../core/calendar.js";
 import { field, select, segmented, esc, toast } from "../components/ui.js";
 
 // Linha resumida: nome e detalhe à esquerda, valor à direita
@@ -126,7 +126,7 @@ function contasHtml(state) {
 
 // Blocos de Ajustes, na ordem em que a carteira é montada
 const BLOCOS = [
-  { id: "ciclo", n: 1, titulo: "Quando eu recebo" },
+  { id: "ciclo", n: 1, titulo: "Meu pagamento" },
   { id: "contas", n: 2, titulo: "Minhas contas" },
   { id: "cartoes", n: 3, titulo: "Cartões" },
   { id: "dividas", n: 4, titulo: "Dívidas" },
@@ -235,32 +235,6 @@ function sextaDe(iso) {
   return toISO(pagamentoAte(fromISO(iso)));
 }
 
-// Seção "Quando você recebe" (ciclo de pagamento)
-const DIAS = DIAS_SEMANA.map((l, i) => ({ id: String(i), label: l }));
-function resumoCiclo(c) {
-  if (c.tipo === "quinzenal") return "quinzenal";
-  if (c.tipo === "mensal") return `todo dia ${c.diaMes || 1}`;
-  if (c.tipo === "manual") return `${(c.datas || []).length} datas`;
-  return `toda ${DIAS_SEMANA[Number(c.diaSemana ?? 5)].toLowerCase()}`;
-}
-function cicloBody(c) {
-  const t = c.tipo;
-  const campos = t === "semanal" ? select({ id: "c-dia", label: "Dia da semana", options: DIAS, value: String(c.diaSemana ?? 5) })
-    : t === "quinzenal" ? field({ id: "c-ancora", label: "Data de um pagamento", type: "date", value: c.ancora || toISO(nextPayday()), note: "" })
-    : t === "mensal" ? field({ id: "c-diames", label: "Dia do mês", value: c.diaMes || 1, note: "" })
-    : `${field({ id: "c-nova", label: "Adicionar data", type: "date", value: "" })}
-       <ul class="cat-list datas">${[...(c.datas || [])].sort().map((d) => `<li><span>${shortDate(fromISO(d))}</span><button class="link" type="button" data-rmdata="${d}">remover</button></li>`).join("") || `<li class="hint">Nenhuma data ainda.</li>`}</ul>`;
-  // prévia com o rascunho (sem mudar o ciclo do app)
-  const atual = getCiclo();
-  setCiclo(c);
-  let p = nextPayday();
-  const prox = Array.from({ length: 4 }, () => { const d = p; p = pagamentoSeguinte(p); return shortDate(d); });
-  setCiclo(atual);
-  return `${segmented({ name: "c-tipo", label: "Recebo", options: TIPOS_CICLO, value: t })}
-    <div class="fields stack">${campos}</div>
-    <p class="hint">Próximos: ${prox.join(" · ")}</p>`;
-}
-
 function periodo(r) {
   if (r.desde) return `a partir de ${shortDate(fromISO(r.desde))}`;
   if (r.ate) return `até ${shortDate(fromISO(r.ate))}`;
@@ -299,13 +273,11 @@ function linha(sec, r, i, state) {
 
 export function renderAjustes(root, ctx) {
   const { state, persist } = ctx;
-  const metas = parte(state, "metas");
-  const colchao = parte(state, "colchaoSemanal");
   const ciclo = parte(state, "ciclo");
 
   // Uma lista (subseção) dentro de um bloco
   const lista = (sec, _, todas) => {
-    if (sec.unificada) return contasHtml(state) + categoriasHtml();
+    if (sec.unificada) return contasHtml(state);
     const unica = todas.length === 1; // título do bloco já diz o que é
     const rows = parte(state, sec.chave);
     let corpo;
@@ -337,42 +309,46 @@ export function renderAjustes(root, ctx) {
 
   const categoriasHtml = () => {
     const cats = parte(state, "categorias");
-    return `<details class="sub cats" ${ctx.novaCat ? "open" : ""}>
-      <summary class="sub-head"><h3>Categorias</h3><span class="total">${cats.length}</span></summary>
+    return `<div class="sub cats">
       <ul class="chips-list">${cats.map((c) => `<li>${esc(c.label)}</li>`).join("")}</ul>
       ${ctx.novaCat
         ? `<form class="nova-cat" id="form-cat" novalidate>${field({ id: "cat-nome", label: "Nova categoria", type: "text", value: "" })}<button class="btn primary" type="submit">Criar</button></form>`
         : `<button class="btn primary add-btn" id="add-cat">+ Adicionar</button>`}
-    </details>`;
+    </div>`;
+  };
+
+  // Minhas contas em abas: uma lista por vez (página curta)
+  const contasAbas = () => {
+    const aba = ctx.contasAba || "fixas";
+    const abas = [
+      { id: "fixas", label: "Contas", n: parte(state, "mensais").length + parte(state, "semanais").length },
+      { id: "atraso", label: "Atrasadas", n: parte(state, "pontuais").length },
+      { id: "futuras", label: "Futuras", n: parte(state, "pedidos").length },
+      { id: "categorias", label: "Categorias", n: parte(state, "categorias").length },
+    ];
+    const corpo = aba === "atraso" ? lista(SECOES.find((x) => x.chave === "pontuais"), 0, [1])
+      : aba === "futuras" ? futurosHtml(ctx)
+      : aba === "categorias" ? categoriasHtml()
+      : contasHtml(state);
+    return `<div class="abas" role="tablist">${abas.map((a) => `<button type="button" role="tab" class="aba ${a.id === aba ? "on" : ""}" aria-selected="${a.id === aba}" data-aba="${a.id}">${a.label}<span>${a.n}</span></button>`).join("")}</div>
+      <div class="aba-corpo">${corpo}</div>`;
   };
 
   const resumoBloco = (b) => {
-    if (b.id === "ciclo") return esc(resumoCiclo(ciclo));
+    if (b.id === "ciclo") return esc(resumoPagamento(ciclo));
     const n = SECOES.filter((x) => x.bloco === b.id).reduce((t, x) => t + (x.unificada ? parte(state, "mensais").length + parte(state, "semanais").length : parte(state, x.chave).length), 0);
     return String(n);
   };
 
-  const cicloHtml = `
-    <form id="form-ciclo" novalidate>
-      ${cicloBody(ctx.cicloDraft || ciclo)}
-      <div class="fields metas">
-        ${field({ id: "m-piso", label: "Piso", value: (ctx.metasDraft || metas).piso, attrs: 'data-meta="piso"', prefix: "$" })}
-        ${field({ id: "m-meta", label: "Meta", value: (ctx.metasDraft || metas).meta, attrs: 'data-meta="meta"', prefix: "$" })}
-        ${field({ id: "m-turbo", label: "Turbo", value: (ctx.metasDraft || metas).turbo, attrs: 'data-meta="turbo"', prefix: "$" })}
-        ${field({ id: "m-colchao", label: "Poupança semanal", value: ctx.metasDraft ? ctx.metasDraft.poupanca : colchao, attrs: 'data-colchao="1"', prefix: "$" })}
-      </div>
-      <div class="save-bar"><button class="btn primary" type="submit">Salvar</button><span class="save-msg" aria-live="polite"></span></div>
-    </form>`;
 
   // Blocos de módulos desligados não aparecem (numeração segue a ordem)
-  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i === 0 ? 1 : i + 3 })).map((b) => `
+  const blocos = BLOCOS.filter((b) => blocoLiberado(state, b.id)).map((b, i) => ({ ...b, n: i === 0 ? 1 : i + 2 })).map((b) => `
     <details class="card sec" data-sec="${b.id}" ${ctx.openSec === b.id ? "open" : ""}>
       <summary class="sec-head"><h2><span class="passo">${b.n}</span>${b.titulo}</h2><span class="total">${resumoBloco(b)}</span></summary>
       <div class="sec-body">
-        ${b.id === "ciclo" ? cicloHtml : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
-        ${b.id === "contas" ? futurosHtml(ctx) : ""}
+        ${b.id === "ciclo" ? pagamentoHtml(ctx) : b.id === "contas" ? contasAbas() : SECOES.filter((x) => x.bloco === b.id).map(lista).join("")}
       </div>
-    </details>${b.id === "ciclo" ? bancosAjustesHtml(ctx, 2) + entradasAjustesHtml(ctx, 3) : ""}`).join("");
+    </details>${b.id === "ciclo" ? bancosAjustesHtml(ctx, 2) : ""}`).join("");
   const grupo = (titulo, html) => (html.trim() ? `<section class="grupo"><h3 class="grupo-t">${titulo}</h3><div class="grupo-card">${html}</div></section>` : "");
 
 
@@ -424,57 +400,8 @@ export function renderAjustes(root, ctx) {
     msg.textContent = "alterações não salvas";
     msg.className = "save-msg warn";
   };
-  // Ciclo de pagamento: rascunho até salvar
-  const fc = root.querySelector("#form-ciclo");
-  const guardarMetas = () => {
-    const g = (sel) => Number(fc.querySelector(sel).value) || 0;
-    ctx.metasDraft = { piso: g('[data-meta="piso"]'), meta: g('[data-meta="meta"]'), turbo: g('[data-meta="turbo"]'), poupanca: g("[data-colchao]") };
-  };
-  const lerCiclo = () => {
-    guardarMetas();
-    const base = { ...(ctx.cicloDraft || ciclo) };
-    const tipo = fc.querySelector('input[name="c-tipo"]:checked')?.value || base.tipo;
-    const d = { tipo, diaSemana: base.diaSemana ?? 5, ancora: base.ancora, diaMes: base.diaMes, datas: base.datas || [] };
-    if (fc.querySelector("#c-dia")) d.diaSemana = Number(fc.querySelector("#c-dia").value);
-    if (fc.querySelector("#c-ancora")) d.ancora = fc.querySelector("#c-ancora").value || d.ancora;
-    if (fc.querySelector("#c-diames")) d.diaMes = Math.min(31, Math.max(1, Number(fc.querySelector("#c-diames").value) || 1));
-    return d;
-  };
-  fc.querySelectorAll('input[name="c-tipo"]').forEach((r) => r.addEventListener("change", () => {
-    ctx.cicloDraft = lerCiclo(); ctx.openSec = "ciclo"; ctx.rerender();
-  }));
-  const nova = fc.querySelector("#c-nova");
-  if (nova) nova.addEventListener("change", () => {
-    const d = lerCiclo();
-    if (nova.value && !d.datas.includes(nova.value)) d.datas = [...d.datas, nova.value].sort();
-    ctx.cicloDraft = d; ctx.openSec = "ciclo"; ctx.rerender();
-  });
-  fc.querySelectorAll("[data-rmdata]").forEach((b) => (b.onclick = () => {
-    const d = lerCiclo(); d.datas = d.datas.filter((x) => x !== b.dataset.rmdata);
-    ctx.cicloDraft = d; ctx.openSec = "ciclo"; ctx.rerender();
-  }));
-  if (ctx.cicloDraft) { const m = fc.querySelector(".save-msg"); m.textContent = "alterações não salvas"; m.className = "save-msg warn"; }
-  fc.addEventListener("submit", (e) => {
-    e.preventDefault();
-    const d = lerCiclo();
-    if (d.tipo === "manual" && !d.datas.length) { const m = fc.querySelector(".save-msg"); m.textContent = "adicione pelo menos uma data"; m.className = "save-msg warn"; return; }
-    const limpo = d.tipo === "semanal" ? { tipo: "semanal", diaSemana: d.diaSemana }
-      : d.tipo === "quinzenal" ? { tipo: "quinzenal", diaSemana: fromISO(d.ancora || toISO(nextPayday())).getDay(), ancora: d.ancora || toISO(nextPayday()) }
-      : d.tipo === "mensal" ? { tipo: "mensal", diaMes: d.diaMes || 1 }
-      : { tipo: "manual", datas: d.datas };
-    salvarParte(state, "ciclo", limpo);
-    const m = { ...parte(state, "metas") };
-    fc.querySelectorAll("[data-meta]").forEach((el) => { m[el.dataset.meta] = Number(el.value) || 0; });
-    salvarParte(state, "metas", m);
-    salvarParte(state, "colchaoSemanal", Number(fc.querySelector("[data-colchao]").value) || 0);
-    ctx.cicloDraft = null;
-    ctx.metasDraft = null;
-    ctx.openSec = null;
-    ctx.salvoEm = "ciclo";
-    salvar();
-  });
 
-  root.querySelectorAll("form.row-form, form.conta-form, #form-ciclo").forEach((form) => {
+  root.querySelectorAll("form.row-form, form.conta-form").forEach((form) => {
     form.addEventListener("input", () => marcarAlterado(form));
     form.addEventListener("change", () => marcarAlterado(form));
   });
@@ -642,10 +569,11 @@ export function renderAjustes(root, ctx) {
   bindDados(root, ctx);
   bindConexoes(root, ctx);
   bindCambio(root, ctx);
-  bindEntradasAjustes(root, ctx);
   bindMeuMenu(root, ctx);
   bindBancosAjustes(root, ctx);
   bindFuturos(root, ctx);
+  bindPagamento(root, ctx);
+  root.querySelectorAll("[data-aba]").forEach((b) => (b.onclick = () => { ctx.contasAba = b.dataset.aba; ctx.openSec = "contas"; ctx.openRow = null; ctx.rerender(); }));
 
   root.querySelector("#sair").onclick = async () => { await sairDaConta(ctx); location.hash = "home"; ctx.rerender(); };
 

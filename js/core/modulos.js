@@ -13,7 +13,7 @@ export const MODULOS = [
   { id: "financiamentos", label: "Financiamentos", desc: "Carro e compras parceladas", blocos: ["financiamentos"], pergunta: "Tem financiamento ou compras parceladas?" },
   { id: "moedas", label: "Moedas", desc: "Contas em outra moeda e câmbio", pergunta: "Paga contas em outra moeda?" },
   { id: "planejar", label: "Planejar", desc: "Guardar para datas e ocasiões", pagina: "planejar", pergunta: "Quer guardar para datas e ocasiões?" },
-  { id: "metas", label: "Metas da semana", desc: "Níveis de quanto quero receber", pergunta: null },
+  { id: "metas", label: "Piso da semana", desc: "Quanto falta para o mínimo", pergunta: null },
   { id: "documentos", label: "Documentos", desc: "Contratos e comprovantes", emBreve: true },
 ];
 
@@ -71,6 +71,3 @@ export function moverMenu(state, id, dir) {
   [ids[i], ids[j]] = [ids[j], ids[i]];
   state.config = { ...cfg(state), ordemMenu: ids };
 }
-
-// Nomes das metas (Piso, Meta, Turbo) definidos pela pessoa
-export const nomesMetas = (state) => ({ piso: "Piso", meta: "Meta", turbo: "Turbo", ...(cfg(state).nomesMetas || {}) });

@@ -65,13 +65,13 @@ export function rendaEfetiva(seed, state, iso) {
   if (usaEntradas(state, iso)) {
     // Entradas cadastradas: o fixo já é certo; variáveis entram com o previsto
     const temFixo = listaEntradas(state).some((e) => e.tipo === "fixo");
-    const base = rendaDa(state, iso) + (temFixo ? 0 : seed.metas.meta);
+    const base = rendaDa(state, iso) + (temFixo ? 0 : seed.metas.piso);
     return { valor: Math.max(0, base - jurosDa(state, iso)), previsao: !temFixo };
   }
   const salario = Number((state.renda[iso] || {}).salario) || 0;
   const extras = rendaDa(state, iso) - salario; // Lyft, ajudas, recebimentos
   // Sem salário digitado: usa a meta como previsão do salário e soma os extras já registrados
-  const base = salario > 0 ? salario + extras : seed.metas.meta + extras;
+  const base = salario > 0 ? salario + extras : seed.metas.piso + extras;
   // Juros e multas pagos na semana saem do dinheiro disponível
   return { valor: Math.max(0, base - jurosDa(state, iso)), previsao: !(salario > 0) };
 }

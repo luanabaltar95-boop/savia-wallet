@@ -2,7 +2,9 @@
 // CALENDÁRIO E CICLO DE PAGAMENTO
 // O app se organiza pelos dias em que você recebe:
 //   semanal (ex.: toda sexta) · quinzenal (a cada 2 semanas)
-//   mensal (um dia do mês) · manual (datas que você escolhe)
+//   duasVezes (2 dias do mês, ex.: 15 e último) · mensal · manual
+//   Mensal/duas vezes: dia fixo, Nº dia útil ou último dia útil;
+//   dia fixo no fim de semana pode adiantar para a sexta antes.
 // Cada pagamento cobre o período do dia seguinte até o próximo pagamento.
 // =========================================================
 export function toISO(d) {
@@ -25,6 +27,7 @@ export function addDays(d, n) {
 export const TIPOS_CICLO = [
   { id: "semanal", label: "Semanal" },
   { id: "quinzenal", label: "Quinzenal" },
+  { id: "duasVezes", label: "Duas vezes por mês" },
   { id: "mensal", label: "Mensal" },
   { id: "manual", label: "Manual" },
 ];
@@ -37,10 +40,49 @@ export const getCiclo = () => ciclo;
 const dia0 = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const diaNoMes = (ano, mes, dia) => new Date(ano, mes, Math.min(dia, new Date(ano, mes + 1, 0).getDate()));
 
+// ---------- Dias úteis (segunda a sexta) ----------
+const util = (d) => d.getDay() !== 0 && d.getDay() !== 6;
+const antesDoFds = (d) => { let x = new Date(d); while (!util(x)) x = addDays(x, -1); return x; };
+function nUtil(ano, mes, n) {
+  let k = 0;
+  for (let dia = 1; dia <= 31; dia++) {
+    const d = new Date(ano, mes, dia);
+    if (d.getMonth() !== mes) break;
+    if (util(d) && ++k === n) return d;
+  }
+  return ultimoUtil(ano, mes);
+}
+const ultimoUtil = (ano, mes) => antesDoFds(new Date(ano, mes + 1, 0));
+
+// Um pagamento do mês pela regra: { regra: "dia" | "util" | "ultimoUtil", dia, n, antes }
+//   dia 0 = último dia do mês
+export function diaPelaRegra(ano, mes, r) {
+  const b = new Date(ano, mes, 1); ano = b.getFullYear(); mes = b.getMonth(); // mês 12 → janeiro do ano seguinte
+  if (r.regra === "util") return nUtil(ano, mes, Number(r.n) || 1);
+  if (r.regra === "ultimoUtil") return ultimoUtil(ano, mes);
+  const dia = Number(r.dia) || 0;
+  const d = dia === 0 ? new Date(ano, mes + 1, 0) : diaNoMes(ano, mes, dia);
+  return r.antes ? antesDoFds(d) : d;
+}
+// Regras do ciclo mensal ou de duas vezes por mês
+function regrasDoMes(c) {
+  if (c.tipo === "duasVezes") return (c.pagamentos && c.pagamentos.length ? c.pagamentos : [{ regra: "dia", dia: 15 }, { regra: "dia", dia: 0 }]);
+  return [{ regra: c.regra || "dia", dia: c.diaMes || 1, n: c.nUtil || 5, antes: c.antes }];
+}
+
 // Primeiro dia de pagamento em `d` ou depois
 export function proximoPagamento(d) {
   d = dia0(d);
   const c = ciclo;
+  if (c.tipo === "mensal" || c.tipo === "duasVezes") {
+    const regras = regrasDoMes(c);
+    for (let k = 0; k < 3; k++) {
+      const ano = d.getFullYear(), mes = d.getMonth() + k;
+      const datas = regras.map((r) => diaPelaRegra(ano, mes, r)).sort((a, b) => a - b);
+      const achou = datas.find((x) => x >= d);
+      if (achou) return achou;
+    }
+  }
   if (c.tipo === "quinzenal") {
     const ancora = c.ancora ? fromISO(c.ancora) : addDays(d, (Number(c.diaSemana) - d.getDay() + 7) % 7);
     const dif = Math.round((d - ancora) / 86400000);

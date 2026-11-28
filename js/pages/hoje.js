@@ -12,12 +12,12 @@ import { recebidoDa } from "../core/receber.js";
 import { addMov, removeMov } from "../core/config.js";
 import { toISO, addDays, nextPayday, getCiclo, pagamentoSeguinte, DIAS_SEMANA } from "../core/calendar.js";
 import { money, shortDate } from "../core/format.js";
-import { card, field, select, levels, payRow, stats, segmented, esc, toast } from "../components/ui.js";
+import { card, field, select, pisoBar, payRow, stats, segmented, esc, toast } from "../components/ui.js";
 import { caixaDaSemana, contasCorrentes, contaPrincipal, bancoDoItem } from "../core/caixa.js";
 import { temEntradas, usaEntradas, entradasDaSemana, totalEntradas, totalAvulsas } from "../core/entradas.js";
 const entradasTotal = (ctx, iso) => totalEntradas(entradasDaSemana(ctx.seed, ctx.state, iso));
 import { entradasLinhas, bindEntradasHoje, avulsasHtml } from "./entradasHoje.js";
-import { ativo, nomesMetas } from "../core/modulos.js";
+import { ativo } from "../core/modulos.js";
 import { emOutraMoeda, aprender, fmtMoeda } from "../core/cambio.js";
 import { weekNav, bindWeekNav } from "../components/weekNav.js";
 
@@ -148,12 +148,12 @@ export function renderHoje(root, ctx) {
         ${Number(r.extras) ? `<p class="hint">+ ${money(Number(r.extras), true)} de outras entradas</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
         ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${ativo(state, "metas") ? levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo, nomes: nomesMetas(state) }) : ""}
-        <a class="link" href="#ajustes" data-abrir-sec="entradas">editar minhas entradas</a>`,
+        ${ativo(state, "metas") ? pisoBar({ renda, piso: week.piso }) : ""}
+        <a class="link" href="#ajustes" data-abrir-sec="ciclo">editar meu pagamento</a>`,
     }) : card({
       title: "Quanto vai entrar",
       body: `<div class="big">${money(renda)}</div>
-        ${!temEntradas(state) ? `<p class="hint"><a href="#ajustes" data-abrir-sec="entradas">Cadastre suas entradas</a> e não precisa digitar toda semana.</p>` : ""}
+        ${!temEntradas(state) ? `<p class="hint"><a href="#ajustes" data-abrir-sec="ciclo">Cadastre seu salário</a> e não precisa digitar toda semana.</p>` : ""}
         <div class="fields">
           ${field({ id: "salario", label: "Salário + extras", value: r.salario, prefix: "$", placeholder: "0,00" })}
           ${lyft.turnos
@@ -167,7 +167,7 @@ export function renderHoje(root, ctx) {
         </div><p class="hint">O resto cai no ${esc(contasCorrentes(state)[0].banco)}.</p>` : ""}
         ${receb.valor ? `<p class="hint">+ ${money(receb.valor, true)} de ${esc(receb.de.join(", "))}</p>` : ""}
         ${ajuda ? `<p class="hint">+ ${money(ajuda, true)} de ajuda (Dividir)</p>` : ""}
-        ${ativo(state, "metas") ? levels({ renda, piso: week.piso, meta: week.meta, turbo: week.turbo, nomes: nomesMetas(state) }) : ""}`,
+        ${ativo(state, "metas") ? pisoBar({ renda, piso: week.piso }) : ""}`,
     })}
 
     ${listaSexta}

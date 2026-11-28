@@ -27,7 +27,7 @@ const FRASES = [
 
 // Carteira nova: os 5 passos de Ajustes
 const PASSOS = [
-  { id: "ciclo", titulo: "Quando eu recebo", desc: "Frequência e quanto entra", feito: (s, st) => !!(st.config || {}).ciclo || (s.metas.meta > 0) },
+  { id: "ciclo", titulo: "Meu pagamento", desc: "Quando recebo e quanto", feito: (s, st) => !!(st.config || {}).ciclo || (s.metas.meta > 0) },
   { id: "contas", titulo: "Minhas contas", desc: "Fixas, da semana e em atraso", feito: (s) => s.mensais.length + s.semanais.length + s.pontuais.length > 0 },
   { id: "cartoes", titulo: "Cartões", desc: "Saldo, mínimo, juros e vencimento", feito: (s) => s.cartoes.length > 0 },
   { id: "dividas", titulo: "Dívidas", desc: "Empréstimos e o que não é cartão", feito: (s) => s.outras.length > 0 },
@@ -131,7 +131,7 @@ export function renderHome(root, ctx) {
       title: "Placar",
       body: stats([
         { label: "Já saiu dos cartões", valor: money(j.pagoCartoes), sub: `de ${money(j.inicioCartoes)}` },
-        { label: "Semanas na meta", valor: String(j.semanasMeta), sub: `≥ ${money(seed.metas.meta)}` },
+        { label: "Semanas no piso", valor: String(j.semanasMeta), sub: `≥ ${money(seed.metas.piso)}` },
         { label: "Cartões livres", valor: j.fimCartoes ? monthYear(j.fimCartoes) : "—", sub: "previsão" },
       ]),
     })}

@@ -30,7 +30,7 @@ export function renderPlanejar(root, ctx) {
             <div class="name">${esc(o.label)}</div>
             <div class="hint">${parcelasTexto(o, fmt)}</div>
             <p>${textoImpacto(o.im)}</p>
-            ${o.im.naoFecha ? `<div class="banner">Com a meta de ${money(seed.metas.meta)}, essa opção não fecha até a data.</div>` : ""}
+            ${o.im.naoFecha ? `<div class="banner">Com o piso de ${money(seed.metas.piso)}, essa opção não fecha até a data.</div>` : ""}
             <button class="btn primary" data-aprovar="${k}">Aprovar esta opção</button>
           </li>`).join("")}</ul>
           <button class="link" id="cancelar">Cancelar pedido</button>`,
