@@ -14,6 +14,8 @@
 // =========================================================
 import { parte, salvarParte } from "../core/config.js";
 import { tipo, ehDinheiro } from "./tipos.js";
+import { saldoAtual, base as baseSaldo } from "../core/saldo.js";
+import { poupanca } from "../core/destino.js";
 
 const n = (v) => Number(v) || 0;
 export const novoIdObjetivo = () => "ob" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
@@ -77,11 +79,23 @@ export function migrarSePreciso(state) {
   return true;
 }
 
-// Itens "Guardar" do plano: um por objetivo em dinheiro ativo com valor por semana.
+// Itens "Guardar" do plano: um por objetivo em dinheiro ativo com valor por semana,
+// em ordem de prioridade. Objetivo já alcançado não guarda mais; perto do fim,
+// guarda só o que falta. O saldo de uma conta vale para um objetivo só
+// (o de maior prioridade primeiro), como no Goal Engine.
 // O primeiro mantém o id antigo "colchao" (pagamentos já marcados continuam valendo).
 export function guardarPorSemana(state) {
-  return objetivos(state).filter((g) => ehDinheiro(g) && g.semanal > 0).map((g, i) => ({
-    id: i === 0 ? "colchao" : `colchao-${g.id}`, objetivo: g.id, conta: g.conta,
-    nome: g.nome ? `Guardar · ${g.nome}` : `Guardar · ${tipo(g.tipo).label}`, valor: g.semanal,
-  }));
+  const usado = {};
+  return objetivos(state).filter((g) => ehDinheiro(g) && g.semanal > 0 && g.tipo !== "patrimonio").map((g) => {
+    let valor = g.semanal;
+    if (g.alvo > 0) {
+      const conta = (state.bancos || []).find((b) => b.id === g.conta) || poupanca(state);
+      const tem = baseSaldo(state, conta) ? Math.max(0, n(saldoAtual(state, conta))) : 0;
+      const livre = Math.max(0, tem - (usado[conta.id] || 0));
+      const meu = Math.min(livre, g.alvo);
+      usado[conta.id] = (usado[conta.id] || 0) + meu;
+      valor = Math.min(valor, Math.max(0, Math.round((g.alvo - meu) * 100) / 100));
+    }
+    return { objetivo: g.id, conta: g.conta, nome: g.nome ? `Guardar · ${g.nome}` : `Guardar · ${tipo(g.tipo).label}`, valor };
+  }).filter((x) => x.valor > 0.004).map((x, i) => ({ ...x, id: i === 0 ? "colchao" : `colchao-${x.objetivo}` }));
 }

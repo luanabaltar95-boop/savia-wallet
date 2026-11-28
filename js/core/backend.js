@@ -2,9 +2,11 @@
 // BACKEND — login e dados no Supabase.
 // Tabelas: wallet_perfis (@usuario) e wallet_carteiras (dados da carteira),
 // protegidas por RLS: cada pessoa só lê e grava a própria linha.
-// Com ?mock na URL usa um backend falso no navegador (para testes).
+// Em demonstração (preview sem banco de teste, computador local ou ?mock)
+// usa um backend falso no navegador, com perfis fictícios.
 // =========================================================
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "../config/backend.js";
+import { AMBIENTE, ehDemo } from "../config/ambiente.js";
+import { perfisDemo, SENHA_DEMO } from "../demo/perfis.js";
 
 const ehEmail = (t) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(t);
 const usuarioDe = (user) => (user && (user.user_metadata?.usuario || String(user.email || "").split("@")[0])) || null;
@@ -28,7 +30,7 @@ async function meuId(c) {
 async function cliente() {
   if (sb) return sb;
   const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-  sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "savia-wallet-auth" } });
+  sb = createClient(AMBIENTE.url, AMBIENTE.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: "pkce", storageKey: "savia-wallet-auth" } });
   return sb;
 }
 
@@ -137,7 +139,17 @@ const real = {
 
 // Backend falso (localStorage) — só para testar telas sem internet
 const MK = "savia-wallet-mock";
-const mdb = () => { try { return JSON.parse(localStorage.getItem(MK)) || { users: {}, sessao: null, dados: {} }; } catch { return { users: {}, sessao: null, dados: {} }; } };
+const mdb = () => {
+  let d;
+  try { d = JSON.parse(localStorage.getItem(MK)); } catch { d = null; }
+  // Primeira vez em demonstração: cria os perfis fictícios
+  if (!d || !Object.keys(d.users || {}).length) {
+    const perfis = perfisDemo();
+    d = { users: Object.fromEntries(Object.keys(perfis).map((u) => [u, SENHA_DEMO])), sessao: null, dados: perfis, ...(d && d.sessao ? { sessao: d.sessao } : {}) };
+    try { localStorage.setItem(MK, JSON.stringify(d)); } catch { /* nada */ }
+  }
+  return d;
+};
 const mput = (d) => localStorage.setItem(MK, JSON.stringify(d));
 const mock = {
   async sessao() { const d = mdb(); return d.sessao ? { usuario: d.sessao, id: d.sessao } : null; },
@@ -169,6 +181,6 @@ const mock = {
   async salvar(id, dados) { const d = mdb(); d.dados[id] = dados; mput(d); },
 };
 
-export const usandoMock = () => new URLSearchParams(location.search).has("mock");
-export const configurado = () => usandoMock() || !!SUPABASE_ANON_KEY;
-export const backend = usandoMock() ? mock : real;
+export const usandoMock = ehDemo;
+export const configurado = () => ehDemo() || !!AMBIENTE.key;
+export const backend = ehDemo() ? mock : real;

@@ -1,5 +1,14 @@
 # Changelog
 
+## Evolução 001.1 — validação e estabilização (branch `evolucao-001`)
+- Ambientes: `api/config.js` + `js/config/ambiente.js`; preview nunca usa o banco de produção; modo demo com perfis fictícios (`js/demo/perfis.js`) e faixa "Teste".
+- Planejamento unificado: Guardar dos objetivos passou para depois das obrigações (camada 3,5), por prioridade. **Muda o plano de quem usava o Guardar antes das contas.**
+- `goals/recursos.js`: dinheiro da semana (entra, obrigações, sobra para objetivos, livre) na Home e nas recomendações.
+- Objetivo alcançado para de guardar; perto do fim guarda só o que falta.
+- Contínuos sem porcentagem: "x de n cuidados em dia".
+- Classe `.fonte` renomeada para `.origem` (conflito de estilo).
+- Testes: 18 cenários.
+
 ## Evolução 001 — objetivos (branch `evolucao-001`)
 - Novo `js/goals/`: tipos, modelo e migração, necessidades (fonte única), engine e recomendações.
 - Onboarding: "O que você deseja alcançar?" (vários, um principal) → "Só o que falta".

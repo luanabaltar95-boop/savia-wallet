@@ -14,17 +14,27 @@ Site estático: HTML + JavaScript com módulos nativos, **sem build e sem framew
 | `styles/` | `tokens.css` (design system), `global.css`, `components.css`, `pagamentos.css`, `objetivos.css` |
 | `supabase/migrations/` | tabelas, RLS e funções (sem dados pessoais) |
 | `tests/` | testes do Goal Engine (`node tests/goals.test.mjs`) |
+| `api/` | Vercel Function `config.js` (ambiente e Supabase por variável) |
+| `js/demo/` | perfis fictícios do modo demonstração |
 | `docs/` | esta documentação |
 
 ## Fluxo de dados
 ```
-state (JSON por usuário) ──getSeed──▶ seed (partes editáveis + saldos atualizados)
-        │                                   │
-        └──────────────▶ Goal Engine ◀──────┘
-                         avaliar() → etapas, progresso, previsão, faltando
-                              │
-             Home · Ajustes · plano da semana (Guardar)
+Entidades (state.config: entradas, contas, cartões, dívidas, futuras, objetivos; bancos; pagos)
+   │ getSeed (lê as entidades originais; não copia)
+   ▼
+seed ──▶ plan.buildWeek + allocate  (UM plano: obrigações → objetivos → livre)
+   │            │
+   │            ├──▶ goals/recursos.js  (quanto entra, obrigações, sobra, livre)
+   │            └──▶ Hoje (lista desta sexta)
+   ▼
+goals/engine.avaliar (etapas, progresso, previsão, faltando; saldo por prioridade)
+   │
+   ├──▶ goals/recomendacoes (guia com origem dos números)
+   └──▶ Home (caminho, etapa da vez, dinheiro desta semana) · Ajustes (Meus objetivos)
+goals/modelo.guardarPorSemana ──▶ plan (itens Guardar; pausados/alcançados ficam fora)
 ```
+Nada do Goal Engine é gravado além da definição do objetivo e do histórico semanal: progresso, saldos e previsões são recalculados sempre que os dados mudam.
 - `state` é um único objeto por usuário, salvo no navegador e sincronizado em `wallet_carteiras.dados` (a cópia mais nova vence por `updatedAt`).
 - `seed` = partes editáveis (`state.config.*`) por cima do seed vazio.
 - O Goal Engine **não desenha nada**; as telas só leem o resultado.
@@ -49,3 +59,5 @@ state (JSON por usuário) ──getSeed──▶ seed (partes editáveis + saldo
 - **ADR-004 — Migração sem apagar.** Carteiras antigas viram objetivos na leitura; `config.objetivo` e `colchaoSemanal` ficam guardados (caminho de volta). `colchaoSemanal` segue a soma do "guardar por semana".
 - **ADR-005 — Um item Guardar por objetivo.** O primeiro mantém o id `colchao` para os pagamentos já marcados continuarem valendo.
 - **ADR-006 — Saldo dividido por prioridade.** Dois objetivos na mesma conta não contam o mesmo dinheiro.
+- **ADR-007 — Planejamento unificado (001.1).** Objetivos entram no plano depois das obrigações (camada 3,5), em ordem de prioridade; não existe plano por objetivo. `goals/recursos.js` só lê esse plano.
+- **ADR-008 — Ambientes por variável (001.1).** `/api/config` (Vercel Function) informa o ambiente; preview sem banco de teste roda em demo com dados fictícios. Ver `ENVIRONMENTS.md`.

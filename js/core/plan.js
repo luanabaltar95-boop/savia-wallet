@@ -173,12 +173,15 @@ function baseItems(seed, state, payday) {
 }
 
 // Ordem de prioridade final, em camadas:
-// 0 vida (comida, gasolina, cachorros) · 1 atrasados · 2 contas a pagar na semana (por data)
-// 3 reservas (vindas da semana passada antes) · 4 pedidos protegidos
-// Guardar para o objetivo vem logo depois do "para usar" (pago a mim primeiro)
-function tier(i) {
+// 0 vida (comida, gasolina, cachorros) · 1 atrasados · 2 contas e mínimos da semana (por data)
+// 2,5 futuras protegidas · 3 reservas · 3,5 objetivos (Guardar) · 4 pedidos
+// Planejamento unificado: objetivos só recebem o que sobra depois das obrigações;
+// entre eles, a ordem é a prioridade (a ordem em que o plano os adiciona).
+// O que sobra no fim vai para a dívida que mais custa (ataque).
+export const TIER_OBJETIVOS = 3.5;
+export function tier(i) {
   if (i.grupo === "vida") return 0;
-  if (i.grupo === "colchao") return 0.5;
+  if (i.grupo === "colchao") return TIER_OBJETIVOS;
   if (i.atrasado) return 1;
   if (i.acao === "pagar") return 2;
   if (i.grupo === "pedidos") return i.protegido ? 2.5 : 4;

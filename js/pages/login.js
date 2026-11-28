@@ -7,6 +7,8 @@ import { field } from "../components/ui.js";
 import { MARCA } from "../config/marca.js";
 import { limparUsuario, usuarioValido } from "../core/auth.js";
 import { backend, configurado } from "../core/backend.js";
+import { ehDemo } from "../config/ambiente.js";
+import { SENHA_DEMO } from "../demo/perfis.js";
 import { abrirCarteira } from "../core/sync.js";
 
 const LOGO = `<img class="login-logo" src="icons/icon-192.png" alt="" width="72" height="72">`;
@@ -38,6 +40,7 @@ export function renderLogin(root, ctx) {
       ${LOGO}
       <h1>${TITULO[modo]}</h1>
       <p class="hint">${MARCA}</p>
+      ${ehDemo() ? `<p class="banner calm demo-aviso">Ambiente de teste com dados fictícios. Entre como <b>@ana</b>, <b>@bruno</b>, <b>@carla</b> ou <b>@novo</b> · senha <b>${SENHA_DEMO}</b></p>` : ""}
       <form class="card" id="login" novalidate autocomplete="on">
         <div class="fields stack">${campos}</div>
         <p class="preview" id="lg-msg" aria-live="polite"></p>

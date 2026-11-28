@@ -8,7 +8,8 @@ const { avaliar, caminho, registrarHistorico, tendencia, custoMensal } = await i
 const { objetivos, salvarObjetivos, derivarAntigos, guardarPorSemana, migrarSePreciso } = await import("../js/goals/modelo.js");
 const { recomendacoes } = await import("../js/goals/recomendacoes.js");
 const { faltando, necessidadesDe } = await import("../js/goals/necessidades.js");
-const { buildWeek } = await import("../js/core/plan.js");
+const { buildWeek, allocate } = await import("../js/core/plan.js");
+const { recursos } = await import("../js/goals/recursos.js");
 
 let ok = 0, falhou = 0;
 const t = (nome, fn) => { try { fn(); ok++; console.log("✓", nome); } catch (e) { falhou++; console.log("✗", nome, "→", e.message); } };
@@ -53,16 +54,17 @@ t("usuário com cartões e dívidas: etapas vêm dos dados, sem perguntar de nov
   sim(r.includes("caro") && r.includes("apr"), "maior custo + juros pendente");
 });
 
-t("múltiplos objetivos na mesma conta: o saldo não é contado duas vezes", () => {
+t("múltiplos objetivos na mesma conta: o saldo não é contado duas vezes e o completo para de guardar", () => {
   const st = vazio();
   st.bancos = [{ id: "pp", banco: "Poupança", tipo: "savings", saldo: 1500, saldoEm: HOJE.getTime() - 1000 }];
   salvarObjetivos(st, [{ tipo: "reserva", alvo: 1000, conta: "pp", semanal: 50 }, { tipo: "compra", nome: "Notebook", alvo: 2000, conta: "pp", semanal: 50 }]);
   const [r, c] = avaliar(getSeed(st), st, HOJE);
   eq(r.valor.atual, 1000, "reserva fica com 1000");
   eq(c.valor.atual, 500, "compra fica com o resto");
-  eq(guardarPorSemana(st).map((g) => g.id), ["colchao", `colchao-${c.id}`]);
+  // A reserva já está completa (1000 de 1000): para de guardar; só a compra guarda
+  eq(guardarPorSemana(st).map((g) => [g.id, g.objetivo]), [["colchao", c.id]]);
   const w = buildWeek(getSeed(st), st, new Date(2026, 11, 4, 12));
-  eq(w.items.filter((i) => i.grupo === "colchao").map((i) => [i.valor, i.conta]), [[50, "pp"], [50, "pp"]], "dois Guardar no plano");
+  eq(w.items.filter((i) => i.grupo === "colchao").map((i) => [i.valor, i.conta]), [[50, "pp"]], "um Guardar no plano");
   const cam = caminho([r, c]);
   sim(cam.etapas.length === r.etapas.length + c.etapas.length, "caminho = soma das etapas");
 });
@@ -140,6 +142,71 @@ t("personalizado por etapas: progresso pelas etapas marcadas", () => {
   salvarObjetivos(st, [{ tipo: "personalizado", nome: "Mudar de casa", etapas: [{ id: "1", nome: "Pesquisar", feito: true }, { id: "2", nome: "Mudar", feito: false }] }]);
   const [a] = avaliar(getSeed(st), st, HOJE);
   eq(a.progresso, 0.5); eq(a.atual.titulo, "Mudar"); eq(a.faltando, []);
+});
+
+// ---------- Evolução 001.1: planejamento unificado ----------
+const semanaComRenda = (st, valor) => { st.renda = { "2026-11-27": { salario: valor } }; st.config.inicio = "2026-11-27"; };
+const SEXTA = new Date(2026, 10, 27, 12);
+
+t("$500 entram, conta de $300, dois objetivos de $500: só $200 vão para objetivos, por prioridade", () => {
+  const st = vazio();
+  st.config = { mensais: [{ id: "luz", nome: "Conta", valor: 300, dia: 1 }] };
+  semanaComRenda(st, 500);
+  salvarObjetivos(st, [{ id: "a", tipo: "economizar", nome: "A", alvo: 5000, semanal: 500 }, { id: "b", tipo: "compra", nome: "B", alvo: 5000, semanal: 500 }]);
+  const r = recursos(getSeed(st), st, SEXTA);
+  eq(r.obrigatorio, 300, "obrigação antes");
+  eq(r.potencialObjetivos, 200);
+  eq(r.objetivos.map((o) => o.recebe), [200, 0], "A recebe 200, B nada");
+  eq(r.livre, 0);
+  const w = buildWeek(getSeed(st), st, SEXTA);
+  const { cover } = allocate(w, 500);
+  eq(cover["luz"], 300, "conta coberta inteira");
+});
+
+t("trocar a prioridade muda quem recebe", () => {
+  const st = vazio();
+  st.config = { mensais: [{ id: "luz", nome: "Conta", valor: 300, dia: 1 }] };
+  semanaComRenda(st, 500);
+  salvarObjetivos(st, [{ id: "b", tipo: "compra", nome: "B", alvo: 5000, semanal: 500, prioridade: 1 }, { id: "a", tipo: "economizar", nome: "A", alvo: 5000, semanal: 500, prioridade: 2 }]);
+  const r = recursos(getSeed(st), st, SEXTA);
+  eq(r.objetivos.map((o) => [o.nome, o.recebe]), [["Guardar · B", 200], ["Guardar · A", 0]]);
+  const rec = recomendacoes(getSeed(st), st, avaliar(getSeed(st), st, HOJE), null, HOJE).find((x) => x.id === "aperto");
+  sim(rec && rec.texto.includes("Fica para depois: A"), rec && rec.texto);
+});
+
+t("renda menor que as contas: objetivos não recebem nada e o app avisa", () => {
+  const st = vazio();
+  st.config = { mensais: [{ id: "luz", nome: "Conta", valor: 300, dia: 1 }] };
+  semanaComRenda(st, 200);
+  salvarObjetivos(st, [{ tipo: "economizar", alvo: 1000, semanal: 100 }]);
+  const r = recursos(getSeed(st), st, SEXTA);
+  eq([r.faltaParaObrigacoes, r.objetivosRecebem], [100, 0]);
+  sim(recomendacoes(getSeed(st), st, avaliar(getSeed(st), st, HOJE), null, HOJE).some((x) => x.id === "deficit"));
+});
+
+t("objetivo pausado não pede dinheiro", () => {
+  const st = vazio();
+  salvarObjetivos(st, [{ id: "a", tipo: "economizar", alvo: 1000, semanal: 100, status: "pausado" }]);
+  eq(guardarPorSemana(st), []);
+  eq(avaliar(getSeed(st), st, HOJE), []);
+});
+
+t("objetivo alcançado para de guardar; perto do fim guarda só o que falta", () => {
+  const st = vazio();
+  st.bancos = [{ id: "pp", banco: "Poupança", tipo: "savings", saldo: 960, saldoEm: HOJE.getTime() - 1000 }];
+  salvarObjetivos(st, [{ tipo: "economizar", alvo: 1000, semanal: 100, conta: "pp" }]);
+  eq(guardarPorSemana(st).map((g) => g.valor), [40]);
+  st.bancos[0].saldo = 1000;
+  eq(guardarPorSemana(st), []);
+});
+
+t("contínuo: progresso é a lista de cuidados, sem valor nem previsão", () => {
+  const st = vazio();
+  salvarObjetivos(st, [{ tipo: "organizar" }]);
+  const [a] = avaliar(getSeed(st), st, HOJE);
+  eq([a.continuo, a.valor, a.previsao], [true, undefined, null]);
+  sim(a.etapas.length === 6 && a.etapas.every((e) => typeof e.ok === "boolean"));
+  eq(caminho([a]).etapas.length, 0, "contínuo não entra no caminho com fim");
 });
 
 console.log(`\n${ok} ok, ${falhou} falharam`);

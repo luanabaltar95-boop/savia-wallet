@@ -74,4 +74,4 @@ export function quandoTexto(iso) {
   return (d - new Date()) / 86400000 > 120 ? monthYear(d) : shortDate(d);
 }
 
-export const fonteTag = (f) => `<span class="fonte ${f}">${ROTULO_FONTE[f] || f}</span>`;
+export const fonteTag = (f) => `<span class="origem ${f}">${ROTULO_FONTE[f] || f}</span>`;

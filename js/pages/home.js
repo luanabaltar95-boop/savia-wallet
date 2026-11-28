@@ -12,6 +12,7 @@ import { avaliar, caminho, registrarHistorico } from "../goals/engine.js";
 import { migrarSePreciso } from "../goals/modelo.js";
 import { toISO, semanaAberta } from "../core/calendar.js";
 import { recomendacoes } from "../goals/recomendacoes.js";
+import { recursos } from "../goals/recursos.js";
 import { etapaHtml, quandoTexto, fonteTag } from "../components/objetivos.js";
 
 const GEAR = `<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>`;
@@ -76,6 +77,24 @@ function semObjetivos(root, ctx) {
   root.querySelector("#home-escolher").onclick = () => { ctx.openSec = "objetivo"; ctx.obNovo = true; };
 }
 
+// Para onde vai o dinheiro desta semana (mesmo plano da Hoje)
+function dinheiroSemana(seed, state) {
+  if (!Object.keys((state.config || {}).entradas || {}).length && !Object.keys(state.renda || {}).length) return "";
+  const r = recursos(seed, state, semanaAberta(state));
+  const linha = (label, v, f, cls = "") => `<li class="${cls}"><span>${esc(label)}</span><b class="num">${money(v, true)}</b>${f ? fonteTag(f) : ""}</li>`;
+  return `<details class="card recursos-card"><summary class="card-head"><h2>Dinheiro desta semana</h2><span class="total num">${money(r.potencialObjetivos, true)} para objetivos</span></summary>
+    <ul class="recursos">
+      ${linha("Entra", r.entra, r.entraFonte, "forte")}
+      ${r.baldes.filter((b) => b.id !== "objetivos" && b.id !== "pedidos" && b.precisa > 0).map((b) => linha(`− ${b.label}`, b.precisa, "")).join("")}
+      ${linha(r.faltaParaObrigacoes > 0 ? "Falta para as contas" : "= Sobra para objetivos", r.faltaParaObrigacoes || r.potencialObjetivos, "", "forte")}
+      ${r.objetivos.map((o) => linha(`− ${o.nome}${o.recebe < o.pede - 0.005 ? ` (pede ${money(o.pede, true)})` : ""}`, o.recebe, "")).join("")}
+      ${r.baldes.find((b) => b.id === "pedidos").precisa > 0 ? linha("− Pedidos e ocasiões", r.baldes.find((b) => b.id === "pedidos").coberto, "") : ""}
+      ${linha("= Livre (vai para a dívida que mais custa)", r.livre, "projecao", "forte")}
+      ${linha("Já paguei nesta semana", r.jaPago, "confirmado", "sub")}
+      ${r.saldoFonte !== "pendente" ? linha("Nas minhas contas agora", r.saldo, r.saldoFonte, "sub") : ""}
+    </ul></details>`;
+}
+
 const rotuloFase = (i, n) => `Etapa ${Math.min(i + 1, n)} de ${n}`;
 
 export function renderHome(root, ctx) {
@@ -100,7 +119,7 @@ export function renderHome(root, ctx) {
   const frase = continuo ? (p >= 1 ? "Tudo em dia. Céu limpo." : "Cada cuidado em dia limpa um pouco o céu.")
     : FRASES[Math.min(FRASES.length - 1, Math.floor(p * (FRASES.length - 1) + 0.0001))];
   const titulo = continuo ? `${feitas} de ${etapas.length} em dia` : etapas.length ? (c.atual ? rotuloFase(feitas, etapas.length) : "Cheguei!") : (um ? um.titulo : "Meu caminho");
-  const rodape = continuo ? `${Math.round(p * 100)}% em dia` : um ? `${Math.round(p * 100)}% de ${um.titulo}` : `${Math.round(p * 100)}% do meu caminho`;
+  const rodape = continuo ? `${feitas} de ${etapas.length} cuidados em dia` : um ? `${Math.round(p * 100)}% de ${um.titulo}` : `${Math.round(p * 100)}% do meu caminho`;
 
   const recs = recomendacoes(seed, state, av, um ? um.id : null).slice(0, 4);
   const recHtml = recs.length ? `<ul class="recs">${recs.map((r) => `<li>${r.href ? `<a href="${r.href}">` : r.sec ? `<a href="#ajustes" data-abrir-sec="${r.sec}">` : "<span>"}${esc(r.texto)}${r.href || r.sec ? "</a>" : "</span>"} ${fonteTag(r.tipo)}</li>`).join("")}</ul>` : "";
@@ -143,6 +162,8 @@ export function renderHome(root, ctx) {
       ${recHtml}
       <a class="btn primary" href="#hoje">Ver a lista desta sexta</a>
     </section>
+
+    ${dinheiroSemana(seed, state)}
 
     ${placar && placar.extra ? card({
       title: "Placar",

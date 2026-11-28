@@ -4,8 +4,7 @@
 // Só regras fixas sobre os dados; sem dado, diz o que falta.
 // =========================================================
 import { toISO, fromISO, semanaAberta, addDays } from "../core/calendar.js";
-import { rendaEfetiva } from "../core/plan.js";
-import { caixaDaSemana } from "../core/caixa.js";
+import { recursos } from "./recursos.js";
 import { feito } from "../core/jornada.js";
 import { money, shortDate } from "../core/format.js";
 import { tendencia } from "./engine.js";
@@ -27,11 +26,20 @@ export function recomendacoes(seed, state, avaliados, foco = null, hoje = new Da
     out.push({ id: "atrasado", tipo: "confirmado", texto: `Pagar primeiro: ${p.nome} (${money(n(p.valor), true)})${atrasados.length > 1 ? ` e mais ${atrasados.length - 1} em atraso` : ""}`, href: "#hoje" });
   }
 
-  // 2. Quanto está disponível nesta semana
+  // 2. Planejamento unificado: obrigações primeiro, objetivos com o que sobra
   if (Object.keys((state.config || {}).entradas || {}).length || Object.keys(state.renda || {}).length) {
-    const ef = rendaEfetiva(seed, state, semana);
-    const cx = caixaDaSemana(state, semana, ef.valor);
-    out.push({ id: "disponivel", tipo: ef.previsao ? "projecao" : "confirmado", texto: `Disponível nesta semana: ${money(cx.total.disponivel, true)}`, href: "#hoje" });
+    const r = recursos(seed, state, semanaAberta(state, hoje));
+    if (r.faltaParaObrigacoes > 0) {
+      out.push({ id: "deficit", tipo: r.entraFonte, texto: `Faltam ${money(r.faltaParaObrigacoes, true)} para as contas desta semana — objetivos esperam`, href: "#hoje" });
+    } else {
+      out.push({ id: "potencial", tipo: r.entraFonte, texto: `Depois das contas sobram ${money(r.potencialObjetivos, true)} para objetivos`, href: "#hoje" });
+      if (r.objetivosPedem - r.objetivosRecebem > 0.5) {
+        const nome = (o) => o.nome.replace(/^Guardar · /, "");
+        const parte = r.objetivos.filter((o) => o.recebe > 0.005 && o.recebe < o.pede - 0.005).map(nome);
+        const fora = r.objetivos.filter((o) => o.recebe <= 0.005).map(nome);
+        out.push({ id: "aperto", tipo: "projecao", texto: `Objetivos pedem ${money(r.objetivosPedem, true)}/semana; cabem ${money(r.objetivosRecebem, true)}.${parte.length ? ` Recebe só parte: ${parte.join(", ")}.` : ""}${fora.length ? ` Fica para depois: ${fora.join(", ")}.` : ""}`, sec: "objetivo" });
+      }
+    }
   }
 
   // 3. A dívida que mais custa

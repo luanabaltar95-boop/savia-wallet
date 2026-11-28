@@ -79,3 +79,6 @@ button, input { font: inherit; color: inherit; }
 .nav ul { display: flex; }
 .nav ul > li { flex: 1 1 0; display: flex; justify-content: center; }
 .nav ul > li:has(.plus) { flex: 0 0 auto; padding: 0 var(--s2); }
+.faixa-ambiente { position: fixed; top: env(safe-area-inset-top); left: 50%; transform: translateX(-50%); z-index: 50; padding: 2px 10px; border-radius: 0 0 8px 8px; background: #8a6d1f; color: #fff; font-size: 10px; font-weight: 700; letter-spacing: .03em; pointer-events: none; }
+.demo-aviso { text-align: left; font-size: var(--t-xs); }
+body.com-faixa .app { padding-top: calc(var(--s3) + 14px + env(safe-area-inset-top)); }

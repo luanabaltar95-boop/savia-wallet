@@ -23,6 +23,7 @@ import { renderLogin, renderNovaSenha } from "./pages/login.js";
 import { renderNav, PAGINAS } from "./components/nav.js";
 import { paginaLiberada } from "./core/modulos.js";
 import { renderComecar, precisaComecar } from "./pages/comecar.js";
+import { AMBIENTE } from "./config/ambiente.js";
 
 // Usuário logado (Supabase) e a carteira dele — preenchidos em iniciar()
 let ultimo = "";
@@ -36,6 +37,14 @@ ctx.persist = () => {
 };
 
 const main = document.getElementById("main");
+// Fora da produção, uma faixa deixa claro que os dados são de teste
+if (AMBIENTE.nome !== "production") {
+  const f = document.createElement("div");
+  f.className = "faixa-ambiente";
+  f.textContent = AMBIENTE.nome === "demo" ? "Teste · dados fictícios" : "Preview · banco de teste";
+  document.body.prepend(f);
+  document.body.classList.add("com-faixa");
+}
 const nav = document.getElementById("nav");
 
 function current() {
