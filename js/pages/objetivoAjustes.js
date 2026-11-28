@@ -44,28 +44,49 @@ export function objetivoHtml(ctx) {
     ? `<li><details class="cam-mais"><summary class="link">ver mais ${etapas.length - corte} etapas</summary><ol class="cam-lista">${etapas.slice(corte).map((f, k) => item(f, k + corte)).join("")}</ol></details></li>` : "");
   const nJuntar = etapas.length + 1;
   const juntarOk = p.alvo > 0 && p.falta <= 0;
+  const tem = (o.tipo !== "dividas" && (o.alvo > 0 || o.nome)) || o.semanal > 0;
+  const ritmo = p.alvo && o.tipo !== "dividas" && (p.precisaSemana || p.chegaEm)
+    ? `<p class="hint">${p.precisaSemana ? `Para chegar até ${dataAno(p.ate)}: ${money(p.precisaSemana)} por semana.` : ""}${p.chegaEm ? ` No ritmo atual chego em ${dataAno(p.chegaEm)}.` : ""}</p>` : "";
   return `<div class="caminho">
       <p class="hint">Meu caminho: pagar os atrasados, quitar as dívidas e juntar dinheiro. As etapas saem das minhas contas e dívidas.</p>
       ${etapas.length ? `<ol class="cam-lista">${lista}</ol>` : ""}
-      <form id="form-objetivo" class="cam-juntar" novalidate>
+      ${tem && !ctx.objEdit ? `<div class="cam-juntar">
         <div class="cam-etapa ${juntarOk ? "ok" : ""}"><span class="cam-n">${juntarOk ? "✓" : nJuntar}</span>
-          <div class="cam-txt"><b>Juntar dinheiro</b><small>${p.alvo ? `Tenho ${money(p.atual)} de ${money(p.alvo)}` : "Defina quanto e até quando"}</small></div></div>
+          <div class="cam-txt"><b>${esc(o.nome || "Juntar dinheiro")}</b><small>${[p.alvo ? `${money(p.atual)} de ${money(p.alvo)}` : "", o.semanal ? `${money(o.semanal)}/semana` : "", o.ate ? `até ${dataAno(o.ate)}` : ""].filter(Boolean).join(" · ")}</small></div></div>
+        ${ritmo}
+        <div class="cam-acoes">
+          <button class="txt-acao" type="button" data-obj-editar>Editar</button>
+          <button class="txt-acao perigo" type="button" data-obj-remover>Remover</button>
+        </div>
+      </div>` : `<form id="form-objetivo" class="cam-juntar" novalidate>
+        <div class="cam-etapa"><span class="cam-n">${nJuntar}</span>
+          <div class="cam-txt"><b>Juntar dinheiro</b><small>Para quê, quanto e até quando</small></div></div>
         <div class="fields stack">
-          ${field({ id: "ob-nome", label: "Para quê", type: "text", value: o.tipo === "dividas" ? "" : o.nome, placeholder: "Ex.: reserva de emergência, viagem" })}
-          ${field({ id: "ob-alvo", label: "Quanto quero juntar", value: o.tipo === "dividas" ? "" : (o.alvo || ""), prefix: "$", placeholder: "0,00" })}
+          ${field({ id: "ob-nome", label: "Para quê", type: "text", value: tem ? o.nome : "", placeholder: "Ex.: reserva de emergência, viagem" })}
+          ${field({ id: "ob-alvo", label: "Quanto quero juntar", value: tem ? (o.alvo || "") : "", prefix: "$", placeholder: "0,00" })}
           ${field({ id: "ob-ate", label: "Até quando (opcional)", type: "date", value: o.ate || "" })}
           ${field({ id: "ob-semanal", label: "Quanto guardo por semana", value: o.semanal || "", prefix: "$", placeholder: "0,00", note: "Já guardo um pouco desde agora, mesmo pagando as dívidas" })}
           ${select({ id: "ob-conta", label: "Guardo na conta", options: bancos.length ? bancos.map((b) => ({ id: b.id, label: b.banco })) : [{ id: "", label: "Poupança" }], value: o.conta || poupanca(state).id })}
         </div>
-        ${p.alvo && o.tipo !== "dividas" ? `<p class="hint">${p.precisaSemana ? `Para chegar até ${dataAno(p.ate)}: ${money(p.precisaSemana)} por semana.` : ""}
-          ${p.chegaEm ? ` No ritmo de ${money(p.semanal)}/semana chego em ${dataAno(p.chegaEm)}.` : ""}</p>` : ""}
-        <div class="save-bar"><button class="btn primary" type="submit">Salvar</button></div>
-      </form>
+        <div class="save-bar"><button class="btn primary" type="submit">Salvar</button>
+          ${tem ? `<button class="btn" type="button" data-obj-cancelar>Cancelar</button>` : ""}</div>
+      </form>`}
     </div>`;
 }
 
 export function bindObjetivo(root, ctx) {
   const { state, persist } = ctx;
+  const abrir = () => { ctx.openSec = "objetivo"; ctx.rerender(); };
+  root.querySelector("[data-obj-editar]")?.addEventListener("click", () => { ctx.objEdit = true; abrir(); });
+  root.querySelector("[data-obj-cancelar]")?.addEventListener("click", () => { ctx.objEdit = false; abrir(); });
+  const rm = root.querySelector("[data-obj-remover]");
+  if (rm) rm.onclick = () => {
+    if (!rm.dataset.confirma) { rm.dataset.confirma = "1"; rm.textContent = "Confirmar: remover"; return; }
+    state.config = { ...state.config, objetivo: {} };
+    salvarParte(state, "colchaoSemanal", 0);
+    ctx.objEdit = false; ctx.openSec = "objetivo";
+    persist(); ctx.rerender(); toast("Objetivo removido");
+  };
   const f = root.querySelector("#form-objetivo");
   if (!f) return;
   const ler = () => ({
@@ -79,7 +100,7 @@ export function bindObjetivo(root, ctx) {
     const { semanal, ...o } = ler();
     state.config = { ...state.config, objetivo: o };
     salvarParte(state, "colchaoSemanal", semanal);
-    ctx.objDraft = null; ctx.openSec = null;
+    ctx.objDraft = null; ctx.objEdit = false; ctx.openSec = "objetivo";
     persist(); ctx.rerender(); toast("Salvo ✓");
   });
 }

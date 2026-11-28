@@ -705,3 +705,5 @@ details.cats .sub-head .total { margin-left: auto; }
 .cam-juntar > .cam-etapa { border-top: 0; padding-top: 0; }
 .cam-mais > summary { list-style: none; padding: 8px 0; cursor: pointer; }
 .cam-mais > summary::-webkit-details-marker { display: none; }
+.cam-acoes { display: flex; gap: var(--s4); }
+.txt-acao.perigo { color: var(--terra); }
