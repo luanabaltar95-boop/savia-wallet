@@ -112,7 +112,6 @@ export function renderHome(root, ctx) {
       </div>
       <a class="btn icon" href="#ajustes" aria-label="Ajustes">${GEAR}</a>
     </header>
-    ${objetivoCard({ ...ctx, naJornada: true })}
 
     <section class="card scene-card">
       ${scene(j.progresso)}
@@ -123,7 +122,7 @@ export function renderHome(root, ctx) {
       </div>
     </section>
 
-    ${j.atual ? card({
+    ${j.atual && j.atual.juntar ? objetivoCard(ctx) : j.atual ? card({
       title: "Próxima fase",
       cls: "next",
       body: `<div class="name big-sm">${esc(j.atual.titulo)}</div>
